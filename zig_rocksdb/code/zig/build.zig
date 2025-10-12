@@ -14,33 +14,17 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    // Add dependency: jiacai2050/zig-rocksdb
-    const dep_rocksdb = b.dependency("rocksdb", .{
-        // Use local version of jiacai2050/zig-rocksdb to fix build error
-        .path = "../../../../zig-rocksdb",
-        // Use the vendored (static) version of RocksDB included in zig-rocksdb
-        .link_vendor = false,
-    });
-
-    // Link system libs for RocksDB
+    // Add dependency: copy from jiacai2050/zig-rocksdb
+    const dep_rocksdb = b.dependency("rocksdb", .{ .link_vendor = false });
     exe.root_module.addImport("rocksdb", dep_rocksdb.module("rocksdb"));
-    // Link the correct artifact from zig-rocksdb
-    // Available artifacts: 'basic' and 'cf'
-    exe.linkLibrary(dep_rocksdb.artifact("basic"));
-
-    exe.linkSystemLibrary("pthread");
-    exe.linkSystemLibrary("stdc++");
-    exe.linkSystemLibrary("z"); // compression
-    exe.linkSystemLibrary("bz2"); // bzip2 compression
-    exe.linkSystemLibrary("lz4"); // lz4 compression
-    exe.linkSystemLibrary("snappy"); // snappy compression
-    exe.linkSystemLibrary("zstd"); // zstd compression
-
-    const run_cmd = b.addRunArtifact(exe);
-    if (b.args) |args| run_cmd.addArgs(args);
+    exe.linkLibC(); // 需要 C 运行时支持
+    exe.linkSystemLibrary("rocksdb"); // 链接系统级 rocksdb 库（C 库）
 
     b.installArtifact(exe);
 
-    const run_step = b.step("run", "Run RocksDB benchmark");
-    run_step.dependOn(&run_cmd.step);
+    const run_cmd = b.addRunArtifact(exe);
+    run_cmd.step.dependOn(b.getInstallStep());
+    if (b.args) |args| run_cmd.addArgs(args);
+
+    b.step("run", "Run benchmark").dependOn(&run_cmd.step);
 }
