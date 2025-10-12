@@ -24,7 +24,10 @@ pub fn build(b: *std.Build) void {
 
     // Link system libs for RocksDB
     exe.root_module.addImport("rocksdb", dep_rocksdb.module("rocksdb"));
-    exe.linkLibrary(dep_rocksdb.artifact("rocksdb"));
+    // Link the correct artifact from zig-rocksdb
+    // Available artifacts: 'basic' and 'cf'
+    exe.linkLibrary(dep_rocksdb.artifact("basic"));
+
     exe.linkSystemLibrary("pthread");
     exe.linkSystemLibrary("stdc++");
     exe.linkSystemLibrary("z"); // compression
