@@ -1,10 +1,11 @@
 const std = @import("std");
 const rocksdb = @import("rocksdb");
 
-fn random_bytes(allocator: std.mem.Allocator, len: usize) []u8 {
-    var buf = allocator.alloc(u8, len) catch unreachable;
-    var prng = std.rand.DefaultPrng.init(@intCast(u64, std.time.timestamp()));
-    var r = prng.random();
+fn random_bytes(allocator: std.mem.Allocator, len: usize) ![]u8 {
+    const buf = try allocator.alloc(u8, len);
+    const seed: u64 = @intCast(std.time.nanoTimestamp());
+    const prng = std.rand.DefaultPrng.init(seed);
+    const r = prng.random();
     for (buf) |*b| b.* = r.int(u8);
     return buf;
 }
@@ -45,7 +46,7 @@ pub fn main() !void {
 
     var wg = std.Thread.WaitGroup{};
     wg.init(threads);
-    for (threads) |i| {
+    for (threads) |_| {
         _ = std.Thread.spawn(.{}, writer, .{ &db, allocator, per_thread }) catch unreachable;
     }
     wg.wait();
