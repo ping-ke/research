@@ -123,7 +123,7 @@ pub fn main() !void {
     const tc = res.args.thread orelse 1;
 
     var db = try rocksdb.Database(.Single).open(
-        gpa,
+        gpa.allocator(),
         "/tmp/zig-rocksdb-mt",
         .{
             .create_if_missing = true,
