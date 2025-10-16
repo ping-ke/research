@@ -6,7 +6,7 @@ const keyprefix: [4]u8 = [_]u8{ 'k', 'e', 'y', '-' };
 const valprefix: [4]u8 = [_]u8{ 'v', 'a', 'l', '-' };
 const seed: u64 = @intCast(std.time.nanoTimestamp());
 const random = std.rand.DefaultPrng.init(seed).random();
-const DB = rocksdb.Database(.multi_threaded);
+const DB = rocksdb.Database(.Multiple);
 
 var mutex = std.Thread.Mutex{};
 var init: u64 = 0;
@@ -90,6 +90,7 @@ fn reader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: 
 
 pub fn main() !void {
     var gpa = std.heap.DebugAllocator(.{}){};
+    const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
     // First we specify what parameters our program can take.
@@ -109,7 +110,7 @@ pub fn main() !void {
     var diag = clap.Diagnostic{};
     var res = clap.parse(clap.Help, &params, clap.parsers.default, .{
         .diagnostic = &diag,
-        .allocator = gpa.allocator(),
+        .allocator = allocator,
     }) catch |err| {
         // Report useful error and exit.
         try diag.reportToFile(.stderr(), err);
@@ -124,7 +125,7 @@ pub fn main() !void {
     const tc = res.args.thread orelse 1;
 
     var db = try DB.open(
-        gpa.allocator(),
+        allocator,
         "/tmp/zig-rocksdb-mt",
         .{
             .create_if_missing = true,
@@ -138,11 +139,11 @@ pub fn main() !void {
     const per_i = (init + wc) / tc;
     for (0..tc) |thid| {
         wg.start();
-        _ = std.Thread.spawn(.{}, writer, .{ thid, &db, gpa, per_i, &wg }) catch unreachable;
+        _ = std.Thread.spawn(.{}, writer, .{ thid, &db, allocator, per_i, &wg }) catch unreachable;
     }
     wg.wait();
     const i_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
-    std.debug.print("Init write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ wc, i_ms, wc * 1000 / i_ms });
+    std.debug.print("Init write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ init + wc, i_ms, @as(f64, @floatFromInt(init + wc)) * 1000.0 / i_ms });
 
     // Random Write phase
     wg.reset(tc);
@@ -151,11 +152,11 @@ pub fn main() !void {
     const per_w = wc / tc;
     for (0..tc) |thid| {
         wg.start();
-        _ = std.Thread.spawn(.{}, randomWriter, .{ thid, &db, gpa, per_w, 0, wc + init, &wg }) catch unreachable;
+        _ = std.Thread.spawn(.{}, randomWriter, .{ thid, &db, allocator, per_w, 0, wc + init, &wg }) catch unreachable;
     }
     wg.wait();
     const w_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
-    std.debug.print("Init write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ wc, w_ms, wc * 1000 / w_ms });
+    std.debug.print("write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ wc, w_ms, @as(f64, @floatFromInt(wc)) * 1000.0 / w_ms });
 
     // Random Read phase
     wg.reset(tc);
@@ -164,11 +165,11 @@ pub fn main() !void {
     const per_r = rc / tc;
     for (0..tc) |thid| {
         wg.start();
-        _ = std.Thread.spawn(.{}, randomReader, .{ thid, &db, gpa, per_r, 0, wc + init, &wg }) catch unreachable;
+        _ = std.Thread.spawn(.{}, randomReader, .{ thid, &db, allocator, per_r, 0, wc + init, &wg }) catch unreachable;
     }
     wg.wait();
     const r_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
-    std.debug.print("Read: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ rc, r_ms, rc * 1000 / r_ms });
+    std.debug.print("Read: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ rc, r_ms, @as(f64, @floatFromInt(rc)) * 1000.0 / r_ms });
 
     std.debug.print("used time {}ns, hps {}\n", .{ timter.read(), 1000_000_000 * init / timter.read() });
 }
