@@ -6,6 +6,7 @@ const keyprefix: [4]u8 = [_]u8{ 'k', 'e', 'y', '-' };
 const valprefix: [4]u8 = [_]u8{ 'v', 'a', 'l', '-' };
 const seed: u64 = @intCast(std.time.nanoTimestamp());
 const random = std.rand.DefaultPrng.init(seed).random();
+const DB = rocksdb.Database(.multi_threaded);
 
 var mutex = std.Thread.Mutex{};
 var init: u64 = 0;
@@ -21,7 +22,7 @@ pub fn makebytes(prefix: [4]u8, i: u64, len: u64) []u8 {
     return bs;
 }
 
-fn randomWriter(thid: usize, db: *rocksdb.Database, allocator: std.mem.Allocator, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) void {
+fn randomWriter(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
@@ -39,7 +40,7 @@ fn randomWriter(thid: usize, db: *rocksdb.Database, allocator: std.mem.Allocator
     std.debug.print("thread {} written done used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
 }
 
-fn randomReader(thid: usize, db: *rocksdb.Database, allocator: std.mem.Allocator, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) void {
+fn randomReader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
@@ -55,7 +56,7 @@ fn randomReader(thid: usize, db: *rocksdb.Database, allocator: std.mem.Allocator
     std.debug.print("thread {} read done used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
 }
 
-fn writer(thid: usize, db: *rocksdb.Database, allocator: std.mem.Allocator, count: usize, wg: *std.Thread.WaitGroup) void {
+fn writer(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: *std.Thread.WaitGroup) void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
@@ -72,7 +73,7 @@ fn writer(thid: usize, db: *rocksdb.Database, allocator: std.mem.Allocator, coun
     std.debug.print("thread {} written done used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
 }
 
-fn reader(thid: usize, db: *rocksdb.Database, allocator: std.mem.Allocator, count: usize, wg: *std.Thread.WaitGroup) void {
+fn reader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: *std.Thread.WaitGroup) void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
@@ -122,7 +123,7 @@ pub fn main() !void {
     ver = res.args.verbosity orelse 3;
     const tc = res.args.thread orelse 1;
 
-    var db = try rocksdb.Database(.Single).open(
+    var db = try DB.open(
         gpa.allocator(),
         "/tmp/zig-rocksdb-mt",
         .{
@@ -135,7 +136,7 @@ pub fn main() !void {
 
     // Init Write phase
     const per_i = (init + wc) / tc;
-    for (tc) |thid| {
+    for (0..tc) |thid| {
         wg.start();
         _ = std.Thread.spawn(.{}, writer, .{ thid, &db, gpa, per_i, &wg }) catch unreachable;
     }
@@ -148,7 +149,7 @@ pub fn main() !void {
     timter.reset();
 
     const per_w = wc / tc;
-    for (tc) |thid| {
+    for (0..tc) |thid| {
         wg.start();
         _ = std.Thread.spawn(.{}, randomWriter, .{ thid, &db, gpa, per_w, 0, wc + init, &wg }) catch unreachable;
     }
@@ -161,7 +162,7 @@ pub fn main() !void {
     timter.reset();
 
     const per_r = rc / tc;
-    for (tc) |thid| {
+    for (0..tc) |thid| {
         wg.start();
         _ = std.Thread.spawn(.{}, randomReader, .{ thid, &db, gpa, per_r, 0, wc + init, &wg }) catch unreachable;
     }
