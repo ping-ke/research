@@ -4,10 +4,8 @@ const rocksdb = @import("rocksdb");
 
 const keyprefix: [4]u8 = [_]u8{ 'k', 'e', 'y', '-' };
 const valprefix: [4]u8 = [_]u8{ 'v', 'a', 'l', '-' };
-const seed: u64 = @intCast(std.time.nanoTimestamp());
 const DB = rocksdb.Database(.Multiple);
 
-var rand = std.Random.DefaultPrng.init(seed);
 var mutex = std.Thread.Mutex{};
 var init: u64 = 0;
 var wc: u64 = 0;
@@ -17,13 +15,13 @@ var ver: u64 = 0;
 fn makekey(i: u64) []u8 {
     var bs: [32]u8 = .{0} ** 32;
     std.mem.writeInt(u64, bs[24..32], @byteSwap(i), .little);
-    return bs;
+    return bs[0..];
 }
 
 fn makeval(i: u64) []u8 {
     var bs: [110]u8 = .{0} ** 110;
     std.mem.writeInt(u64, bs[102..110], @byteSwap(i), .little);
-    return bs;
+    return bs[0..];
 }
 
 fn randomWriter(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) !void {
@@ -31,12 +29,11 @@ fn randomWriter(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize
     var i: usize = 0;
     var timer = try std.time.Timer.start();
     while (i < count) : (i += 1) {
-        const val = rand.intRangeLessThan(usize, start, end);
-        const key = makekey(val);
-        defer allocator.free(key);
-        const value = makeval(val);
-        defer allocator.free(value);
-        try db.put(key, value, .{});
+        const val = std.crypto.random.intRangeLessThan(usize, start, end);
+        var bs: [110]u8 = .{0} ** 110;
+        std.mem.writeInt(u64, bs[24..32], @byteSwap(val), .little);
+        defer allocator.free(bs);
+        try db.put(bs[0..32], bs[0..], .{});
         if (ver >= 3 and i % 10_000 == 0) {
             std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), val / timer.read() });
         }
@@ -49,10 +46,10 @@ fn randomReader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize
     var i: usize = 0;
     var timer = try std.time.Timer.start();
     while (i < count) : (i += 1) {
-        const val = rand.intRangeLessThan(usize, start, end);
+        const val = std.crypto.random.intRangeLessThan(usize, start, end);
         const key = makekey(val);
         defer allocator.free(key);
-        try db.get(key, .{});
+        _ = try db.get(key, .{});
         if (ver >= 3 and i % 10_000 == 0) {
             std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
         }
@@ -67,7 +64,7 @@ fn writer(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: 
     while (i < count) : (i += 1) {
         const key = makekey(thid * count + i);
         defer allocator.free(key);
-        const value = makeval(allocator, valprefix, i, 110);
+        const value = makeval(thid * count + i);
         defer allocator.free(value);
         try db.put(key, value, .{});
         if (ver >= 3 and i % 10_000 == 0) {
@@ -84,7 +81,7 @@ fn reader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: 
     while (i < count) : (i += 1) {
         const key = makekey(thid * count + i);
         defer allocator.free(key);
-        try db.get(key, .{});
+        _ = try db.get(key, .{});
         if (ver >= 3 and i % 10_000 == 0) {
             std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
         }
@@ -93,9 +90,10 @@ fn reader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: 
 }
 
 pub fn main() !void {
-    var gpa = std.heap.DebugAllocator(.{}){};
-    const allocator = gpa.allocator();
-    defer _ = gpa.deinit();
+    // var gpa = std.heap.DebugAllocator(.{}){};
+    // const allocator = gpa.allocator();
+    // defer _ = gpa.deinit();
+    const allocator = std.heap.page_allocator;
 
     // First we specify what parameters our program can take.
     // We can use `parseParamsComptime` to parse a string into an array of `Param(Help)`.
