@@ -6,9 +6,9 @@ pub fn build(b: *std.Build) void {
 
     // Create executable
     const exe = b.addExecutable(.{
-        .name = "bench_rocksdb",
+        .name = "bench_zig_rocksdb",
         .root_module = b.addModule("root", .{
-            .root_source_file = b.path("main.zig"),
+            .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
         }),
@@ -17,8 +17,8 @@ pub fn build(b: *std.Build) void {
     // Add dependency: copy from jiacai2050/zig-rocksdb
     const dep_rocksdb = b.dependency("rocksdb", .{ .link_vendor = false });
     exe.root_module.addImport("rocksdb", dep_rocksdb.module("rocksdb"));
-    exe.linkLibC(); // 需要 C 运行时支持
-    exe.linkSystemLibrary("rocksdb"); // 链接系统级 rocksdb 库（C 库）
+    exe.linkLibC();
+    exe.linkSystemLibrary("rocksdb");
 
     const clap = b.dependency("clap", .{});
     exe.root_module.addImport("clap", clap.module("clap"));

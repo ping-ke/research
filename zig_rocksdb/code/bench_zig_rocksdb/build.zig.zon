@@ -1,0 +1,20 @@
+.{
+    .name = .zig,
+    .version = "0.15.2",
+    .dependencies = .{
+        .rocksdb = .{
+            .url = "https://github.com/jiacai2050/zig-rocksdb/archive/refs/heads/main.tar.gz",
+            .hash = "rocksdb-0.2.0-6iKb4KOQAAAmlxe_B_vNeprzycktfswdK0NInMO5awDk",
+        },
+        .clap = .{
+            .url = "git+https://github.com/Hejsil/zig-clap#b7e3348ed60f99ba32c75aa707ff7c87adc31b36",
+            .hash = "clap-0.11.0-oBajB-TnAQC7yPLnZRT5WzHZ_4Ly4dX2OILskli74b9H",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+    .fingerprint = 0xc1ce1081d00e18f9,
+}

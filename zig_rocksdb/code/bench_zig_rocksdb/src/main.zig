@@ -134,7 +134,7 @@ pub fn main() !void {
     var wg = std.Thread.WaitGroup.init(tc);
 
     // Init Write phase
-    const per_i = init / tc;
+    const per_i = init + wc / tc;
     for (tc) |thid| {
         _ = std.Thread.spawn(.{}, writer, .{ thid, &db, gpa, per_i, &wg }) catch unreachable;
     }
