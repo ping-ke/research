@@ -12,18 +12,6 @@ var wc: u64 = 0;
 var rc: u64 = 0;
 var ver: u64 = 0;
 
-fn makekey(i: u64) []u8 {
-    var bs: [32]u8 = .{0} ** 32;
-    std.mem.writeInt(u64, bs[24..32], @byteSwap(i), .little);
-    return bs[0..];
-}
-
-fn makeval(i: u64) []u8 {
-    var bs: [110]u8 = .{0} ** 110;
-    std.mem.writeInt(u64, bs[102..110], @byteSwap(i), .little);
-    return bs[0..];
-}
-
 fn randomWriter(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) !void {
     defer wg.finish();
     var i: usize = 0;
@@ -56,16 +44,14 @@ fn randomReader(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg
     std.debug.print("thread {} read done used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
 }
 
-fn writer(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: *std.Thread.WaitGroup) !void {
+fn writer(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
     while (i < count) : (i += 1) {
-        const key = makekey(thid * count + i);
-        defer allocator.free(key);
-        const value = makeval(thid * count + i);
-        defer allocator.free(value);
-        try db.put(key, value, .{});
+        var bs: [110]u8 = .{0} ** 110;
+        std.mem.writeInt(u64, bs[24..32], @byteSwap(thid * count + i), .little);
+        try db.put(bs[0..32], bs[0..], .{});
         if (ver >= 3 and i % 10_000 == 0) {
             std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
         }
@@ -73,14 +59,14 @@ fn writer(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: 
     std.debug.print("thread {} written done used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
 }
 
-fn reader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: *std.Thread.WaitGroup) !void {
+fn reader(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
     while (i < count) : (i += 1) {
-        const key = makekey(thid * count + i);
-        defer allocator.free(key);
-        _ = try db.get(key, .{});
+        var bs: [32]u8 = .{0} ** 32;
+        std.mem.writeInt(u64, bs[24..32], @byteSwap(thid * count + i), .little);
+        _ = try db.get(bs[0..], .{});
         if (ver >= 3 and i % 10_000 == 0) {
             std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
         }
@@ -140,7 +126,7 @@ pub fn main() !void {
     const per_i = (init + wc) / tc;
     for (0..tc) |thid| {
         wg.start();
-        _ = std.Thread.spawn(.{}, writer, .{ thid, &db, allocator, per_i, &wg }) catch unreachable;
+        _ = std.Thread.spawn(.{}, writer, .{ thid, &db, per_i, &wg }) catch unreachable;
     }
     wg.wait();
     const i_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
