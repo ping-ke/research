@@ -24,7 +24,7 @@ fn makeval(i: u64) []u8 {
     return bs[0..];
 }
 
-fn randomWriter(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) !void {
+fn randomWriter(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) !void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
@@ -32,7 +32,6 @@ fn randomWriter(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize
         const val = std.crypto.random.intRangeLessThan(usize, start, end);
         var bs: [110]u8 = .{0} ** 110;
         std.mem.writeInt(u64, bs[24..32], @byteSwap(val), .little);
-        defer allocator.free(bs);
         try db.put(bs[0..32], bs[0..], .{});
         if (ver >= 3 and i % 10_000 == 0) {
             std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), val / timer.read() });
@@ -41,15 +40,15 @@ fn randomWriter(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize
     std.debug.print("thread {} written done used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
 }
 
-fn randomReader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) !void {
+fn randomReader(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) !void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
     while (i < count) : (i += 1) {
         const val = std.crypto.random.intRangeLessThan(usize, start, end);
-        const key = makekey(val);
-        defer allocator.free(key);
-        _ = try db.get(key, .{});
+        var bs: [32]u8 = .{0} ** 32;
+        std.mem.writeInt(u64, bs[24..32], @byteSwap(val), .little);
+        _ = try db.get(bs[0..], .{});
         if (ver >= 3 and i % 10_000 == 0) {
             std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
         }
@@ -154,7 +153,7 @@ pub fn main() !void {
     const per_w = wc / tc;
     for (0..tc) |thid| {
         wg.start();
-        _ = std.Thread.spawn(.{}, randomWriter, .{ thid, &db, allocator, per_w, 0, wc + init, &wg }) catch unreachable;
+        _ = std.Thread.spawn(.{}, randomWriter, .{ thid, &db, per_w, 0, wc + init, &wg }) catch unreachable;
     }
     wg.wait();
     const w_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
@@ -167,7 +166,7 @@ pub fn main() !void {
     const per_r = rc / tc;
     for (0..tc) |thid| {
         wg.start();
-        _ = std.Thread.spawn(.{}, randomReader, .{ thid, &db, allocator, per_r, 0, wc + init, &wg }) catch unreachable;
+        _ = std.Thread.spawn(.{}, randomReader, .{ thid, &db, per_r, 0, wc + init, &wg }) catch unreachable;
     }
     wg.wait();
     const r_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
