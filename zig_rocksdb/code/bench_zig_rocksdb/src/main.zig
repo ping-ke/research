@@ -22,7 +22,7 @@ pub fn makebytes(prefix: [4]u8, i: u64, len: u64) []u8 {
     return bs;
 }
 
-fn randomWriter(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) void {
+fn randomWriter(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) !void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
@@ -40,7 +40,7 @@ fn randomWriter(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize
     std.debug.print("thread {} written done used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
 }
 
-fn randomReader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) void {
+fn randomReader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) !void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
@@ -56,7 +56,7 @@ fn randomReader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize
     std.debug.print("thread {} read done used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
 }
 
-fn writer(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: *std.Thread.WaitGroup) void {
+fn writer(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: *std.Thread.WaitGroup) !void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
@@ -73,7 +73,7 @@ fn writer(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: 
     std.debug.print("thread {} written done used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
 }
 
-fn reader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: *std.Thread.WaitGroup) void {
+fn reader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: *std.Thread.WaitGroup) !void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
@@ -146,7 +146,7 @@ pub fn main() !void {
     std.debug.print("Init write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ init + wc, i_ms, @as(f64, @floatFromInt(init + wc)) * 1000.0 / i_ms });
 
     // Random Write phase
-    wg.reset(tc);
+    wg.reset();
     timter.reset();
 
     const per_w = wc / tc;
@@ -159,7 +159,7 @@ pub fn main() !void {
     std.debug.print("write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ wc, w_ms, @as(f64, @floatFromInt(wc)) * 1000.0 / w_ms });
 
     // Random Read phase
-    wg.reset(tc);
+    wg.reset();
     timter.reset();
 
     const per_r = rc / tc;
