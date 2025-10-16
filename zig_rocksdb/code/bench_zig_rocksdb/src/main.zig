@@ -131,11 +131,12 @@ pub fn main() !void {
     );
 
     var timter = try std.time.Timer.start();
-    var wg = std.Thread.WaitGroup.init(tc);
+    var wg: std.Thread.WaitGroup = .{};
 
     // Init Write phase
     const per_i = init + wc / tc;
     for (tc) |thid| {
+        wg.start();
         _ = std.Thread.spawn(.{}, writer, .{ thid, &db, gpa, per_i, &wg }) catch unreachable;
     }
     wg.wait();
@@ -148,6 +149,7 @@ pub fn main() !void {
 
     const per_w = wc / tc;
     for (tc) |thid| {
+        wg.start();
         _ = std.Thread.spawn(.{}, randomWriter, .{ thid, &db, gpa, per_w, 0, wc + init, &wg }) catch unreachable;
     }
     wg.wait();
@@ -160,6 +162,7 @@ pub fn main() !void {
 
     const per_r = rc / tc;
     for (tc) |thid| {
+        wg.start();
         _ = std.Thread.spawn(.{}, randomReader, .{ thid, &db, gpa, per_r, 0, wc + init, &wg }) catch unreachable;
     }
     wg.wait();
