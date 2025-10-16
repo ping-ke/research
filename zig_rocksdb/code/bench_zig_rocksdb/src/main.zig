@@ -21,11 +21,11 @@ fn randomWriter(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg
         var bs: [110]u8 = .{0} ** 110;
         std.mem.writeInt(u64, bs[24..32], @byteSwap(val), .little);
         try db.put(bs[0..32], bs[0..], .{});
-        if (ver >= 3 and i % 10_000 == 0) {
-            std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), val / timer.read() });
+        if (ver >= 3 and i % 100_000 == 0) {
+            std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
         }
     }
-    std.debug.print("thread {} written done used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
+    std.debug.print("thread {} written done used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
 }
 
 fn randomReader(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) !void {
@@ -37,11 +37,11 @@ fn randomReader(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg
         var bs: [32]u8 = .{0} ** 32;
         std.mem.writeInt(u64, bs[24..32], @byteSwap(val), .little);
         _ = try db.get(bs[0..], .{});
-        if (ver >= 3 and i % 10_000 == 0) {
-            std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
+        if (ver >= 3 and i % 100_000 == 0) {
+            std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
         }
     }
-    std.debug.print("thread {} read done used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
+    std.debug.print("thread {} read done used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
 }
 
 fn writer(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
@@ -53,10 +53,10 @@ fn writer(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
         std.mem.writeInt(u64, bs[24..32], @byteSwap(thid * count + i), .little);
         try db.put(bs[0..32], bs[0..], .{});
         if (ver >= 3 and i % 10_000 == 0) {
-            std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
+            std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
         }
     }
-    std.debug.print("thread {} written done used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
+    std.debug.print("thread {} written done used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
 }
 
 fn reader(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
@@ -68,10 +68,10 @@ fn reader(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
         std.mem.writeInt(u64, bs[24..32], @byteSwap(thid * count + i), .little);
         _ = try db.get(bs[0..], .{});
         if (ver >= 3 and i % 10_000 == 0) {
-            std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
+            std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
         }
     }
-    std.debug.print("thread {} read done used time {}ns, hps {}\n", .{ thid, timer.read(), i / timer.read() });
+    std.debug.print("thread {} read done used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
 }
 
 pub fn main() !void {
@@ -106,8 +106,8 @@ pub fn main() !void {
     defer res.deinit();
 
     init = res.args.init orelse 0;
-    wc = res.args.write orelse 1000000;
-    rc = res.args.read orelse 1000000;
+    wc = res.args.write orelse 1_000_000;
+    rc = res.args.read orelse 1_000_000;
     ver = res.args.verbosity orelse 3;
     const tc = res.args.thread orelse 1;
 
