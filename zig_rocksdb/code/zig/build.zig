@@ -8,7 +8,7 @@ pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{
         .name = "bench_rocksdb",
         .root_module = b.addModule("root", .{
-            .root_source_file = b.path("zig-rocksdb-mt.zig"),
+            .root_source_file = b.path("main.zig"),
             .target = target,
             .optimize = optimize,
         }),
@@ -19,6 +19,9 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("rocksdb", dep_rocksdb.module("rocksdb"));
     exe.linkLibC(); // 需要 C 运行时支持
     exe.linkSystemLibrary("rocksdb"); // 链接系统级 rocksdb 库（C 库）
+
+    const clap = b.dependency("clap", .{});
+    exe.root_module.addImport("clap", clap.module("clap"));
 
     b.installArtifact(exe);
 
