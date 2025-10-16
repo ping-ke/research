@@ -14,11 +14,15 @@ var wc: u64 = 0;
 var rc: u64 = 0;
 var ver: u64 = 0;
 
-pub fn makebytes(allocator: std.mem.Allocator, prefix: [4]u8, i: u64, len: u64) ![]u8 {
-    var bs = try allocator.alloc(u8, len);
-    std.mem.set(u8, bs, 0);
-    std.mem.copy(u8, bs[0..4], prefix[0..]);
-    std.mem.writeInt(u64, bs[len - 8 .. len], @byteSwap(i), .little);
+fn makekey(i: u64) []u8 {
+    var bs: [32]u8 = .{0} ** 32;
+    std.mem.writeInt(u64, bs[24..32], @byteSwap(i), .little);
+    return bs;
+}
+
+fn makeval(i: u64) []u8 {
+    var bs: [110]u8 = .{0} ** 110;
+    std.mem.writeInt(u64, bs[102..110], @byteSwap(i), .little);
     return bs;
 }
 
@@ -28,9 +32,9 @@ fn randomWriter(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize
     var timer = try std.time.Timer.start();
     while (i < count) : (i += 1) {
         const val = rand.intRangeLessThan(usize, start, end);
-        const key = makebytes(allocator, keyprefix, val, 32);
+        const key = makekey(val);
         defer allocator.free(key);
-        const value = makebytes(allocator, valprefix, val, 110);
+        const value = makeval(val);
         defer allocator.free(value);
         try db.put(key, value, .{});
         if (ver >= 3 and i % 10_000 == 0) {
@@ -46,7 +50,7 @@ fn randomReader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize
     var timer = try std.time.Timer.start();
     while (i < count) : (i += 1) {
         const val = rand.intRangeLessThan(usize, start, end);
-        const key = makebytes(allocator, keyprefix, val, 32);
+        const key = makekey(val);
         defer allocator.free(key);
         try db.get(key, .{});
         if (ver >= 3 and i % 10_000 == 0) {
@@ -61,9 +65,9 @@ fn writer(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: 
     var i: usize = 0;
     var timer = try std.time.Timer.start();
     while (i < count) : (i += 1) {
-        const key = makebytes(allocator, keyprefix, thid * count + i, 32);
+        const key = makekey(thid * count + i);
         defer allocator.free(key);
-        const value = makebytes(allocator, valprefix, i, 110);
+        const value = makeval(allocator, valprefix, i, 110);
         defer allocator.free(value);
         try db.put(key, value, .{});
         if (ver >= 3 and i % 10_000 == 0) {
@@ -78,7 +82,7 @@ fn reader(thid: usize, db: *DB, allocator: std.mem.Allocator, count: usize, wg: 
     var i: usize = 0;
     var timer = try std.time.Timer.start();
     while (i < count) : (i += 1) {
-        const key = makebytes(allocator, keyprefix, i, 32);
+        const key = makekey(thid * count + i);
         defer allocator.free(key);
         try db.get(key, .{});
         if (ver >= 3 and i % 10_000 == 0) {
