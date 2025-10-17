@@ -31,7 +31,7 @@ var (
 	randBytes = make([]byte, valLen*keyLen)
 )
 
-func randomWrite(thid, count, start, end int64, db *leveldb.DB, wg *sync.WaitGroup) {
+func randomWrite(tid, count, start, end int64, db *leveldb.DB, wg *sync.WaitGroup) {
 	wg.Done()
 	st := time.Now()
 	key := make([]byte, keyLen)
@@ -44,14 +44,14 @@ func randomWrite(thid, count, start, end int64, db *leveldb.DB, wg *sync.WaitGro
 		db.Put(key, val, nil)
 		if *logLevel >= 3 && i%100000 == 0 && i > 0 {
 			ms := time.Since(st).Milliseconds()
-			fmt.Printf("thread %d used time %d ms, hps %d\n", thid, ms, i*1000/ms)
+			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
 	}
-	tu := time.Since(st).Milliseconds()
-	fmt.Printf("thread %d written done used time %d ms, hps %d \n", thid, tu, count*1000/tu)
+	tu := time.Since(st).Microseconds()
+	fmt.Printf("thread %d written done used time %d ms, hps %d \n", tid, tu, count*1000000/tu)
 }
 
-func randomRead(thid, count, start, end int64, db *leveldb.DB, wg *sync.WaitGroup) {
+func randomRead(tid, count, start, end int64, db *leveldb.DB, wg *sync.WaitGroup) {
 	wg.Done()
 	st := time.Now()
 	key := make([]byte, keyLen)
@@ -61,47 +61,47 @@ func randomRead(thid, count, start, end int64, db *leveldb.DB, wg *sync.WaitGrou
 		_, _ = db.Get(key, nil)
 		if *logLevel >= 3 && i%100000 == 0 && i > 0 {
 			ms := time.Since(st).Milliseconds()
-			fmt.Printf("thread %d used time %d ms, hps %d\n", thid, ms, i*1000/ms)
+			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
 	}
-	tu := time.Since(st).Milliseconds()
-	fmt.Printf("thread %d written done used time %d ms, hps %d \n", thid, tu, count*1000/tu)
+	tu := time.Since(st).Microseconds()
+	fmt.Printf("thread %d written done used time %d ms, hps %d \n", tid, tu, count*1000000/tu)
 }
 
-func seqWrite(thid, count int64, db *leveldb.DB, wg *sync.WaitGroup) {
+func seqWrite(tid, count int64, db *leveldb.DB, wg *sync.WaitGroup) {
 	wg.Done()
 	st := time.Now()
 	key := make([]byte, keyLen)
 	val := make([]byte, valLen)
 	for i := int64(0); i < count; i++ {
-		idx := thid*count + i
+		idx := tid*count + i
 		s := (idx % keyLen) * valLen
 		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(idx))
 		copy(val, randBytes[s:s+valLen])
 		db.Put(key, val, nil)
 		if *logLevel >= 3 && i%100000 == 0 && i > 0 {
 			ms := time.Since(st).Milliseconds()
-			fmt.Printf("thread %d used time %d ms, hps %d\n", thid, ms, i*1000/ms)
+			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
 	}
-	tu := time.Since(st).Milliseconds()
-	fmt.Printf("thread %d written done used time %d ms, hps %d \n", thid, tu, count*1000/tu)
+	tu := time.Since(st).Microseconds()
+	fmt.Printf("thread %d written done used time %d ms, hps %d \n", tid, tu, count*1000000/tu)
 }
 
-func seqRead(thid, count int64, db *leveldb.DB, wg *sync.WaitGroup) {
+func seqRead(tid, count int64, db *leveldb.DB, wg *sync.WaitGroup) {
 	wg.Done()
 	st := time.Now()
 	key := make([]byte, keyLen)
 	for i := int64(0); i < count; i++ {
-		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(thid*count+i))
+		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(tid*count+i))
 		_, _ = db.Get(key, nil)
 		if *logLevel >= 3 && i%100000 == 0 && i > 0 {
-			ms := time.Since(st).Milliseconds()
-			fmt.Printf("thread %d used time %d ms, hps %d\n", thid, ms, i*1000/ms)
+			ms := time.Since(st).Microseconds()
+			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
 	}
 	tu := time.Since(st).Milliseconds()
-	fmt.Printf("thread %d written done used time %d ms, hps %d \n", thid, tu, count*1000/tu)
+	fmt.Printf("thread %d written done used time %d ms, hps %d \n", tid, tu, count*1000000/tu)
 }
 
 func main() {
@@ -114,7 +114,9 @@ func main() {
 	defer func() {
 		if db != nil {
 			err := db.Close()
-			fmt.Printf("close db err %s\n", err)
+			if err != nil {
+				fmt.Printf("close db err %s\n", err)
+			}
 		}
 	}()
 
@@ -126,39 +128,39 @@ func main() {
 	rand.Read(randBytes)
 
 	var wg sync.WaitGroup
-	if *ni {
+	if *ni && total > 0 {
 		start := time.Now()
 		per := total / threads
-		for thid := int64(0); thid < threads; thid++ {
+		for tid := int64(0); tid < threads; tid++ {
 			wg.Add(1)
-			go seqWrite(thid, per, db, &wg)
+			go seqWrite(tid, per, db, &wg)
 		}
 		wg.Wait()
-		writeMs := float64(time.Since(start).Milliseconds())
-		fmt.Printf("Write: %d ops in %.2f ms (%.2f ops/s)\n", total, writeMs, float64(total)*1000/writeMs)
+		ms := float64(time.Since(start).Milliseconds())
+		fmt.Printf("Init write: %d ops in %.2f ms (%.2f ops/s)\n", total, ms, float64(total)*1000/ms)
 	}
 
 	if writeCount > 0 {
 		start := time.Now()
 		per := writeCount / threads
-		for thid := int64(0); thid < threads; thid++ {
+		for tid := int64(0); tid < threads; tid++ {
 			wg.Add(1)
-			go randomWrite(thid, per, 0, total, db, &wg)
+			go randomWrite(tid, per, 0, total, db, &wg)
 		}
 		wg.Wait()
-		writeMs := float64(time.Since(start).Milliseconds())
-		fmt.Printf("Write: %d ops in %.2f ms (%.2f ops/s)\n", total, writeMs, float64(total)*1000/writeMs)
+		ms := float64(time.Since(start).Milliseconds())
+		fmt.Printf("Random update: %d ops in %.2f ms (%.2f ops/s)\n", writeCount, ms, float64(writeCount)*1000/ms)
 	}
 
 	if readCount > 0 {
 		start := time.Now()
 		per := readCount / threads
-		for thid := int64(0); thid < threads; thid++ {
+		for tid := int64(0); tid < threads; tid++ {
 			wg.Add(1)
-			go randomRead(thid, per, 0, total, db, &wg)
+			go randomRead(tid, per, 0, total, db, &wg)
 		}
 		wg.Wait()
-		writeMs := float64(time.Since(start).Milliseconds())
-		fmt.Printf("Write: %d ops in %.2f ms (%.2f ops/s)\n", total, writeMs, float64(total)*1000/writeMs)
+		ms := float64(time.Since(start).Milliseconds())
+		fmt.Printf("Random read: %d ops in %.2f ms (%.2f ops/s)\n", readCount, ms, float64(readCount)*1000/ms)
 	}
 }
