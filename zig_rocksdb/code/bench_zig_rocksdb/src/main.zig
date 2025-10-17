@@ -138,26 +138,30 @@ pub fn main() !void {
         timter.reset();
     }
 
-    // Random Write phase
-    const per_w = wc / tc;
-    for (0..tc) |thid| {
-        wg.start();
-        _ = std.Thread.spawn(.{}, randomWriter, .{ thid, &db, per_w, 0, total, &wg }) catch unreachable;
-    }
-    wg.wait();
-    const w_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
-    std.debug.print("write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ wc, w_ms, @as(f64, @floatFromInt(wc)) * 1000.0 / w_ms });
+    if (wc != 0) {
+        // Random Write phase
+        const per_w = wc / tc;
+        for (0..tc) |thid| {
+            wg.start();
+            _ = std.Thread.spawn(.{}, randomWriter, .{ thid, &db, per_w, 0, total, &wg }) catch unreachable;
+        }
+        wg.wait();
+        const w_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
+        std.debug.print("write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ wc, w_ms, @as(f64, @floatFromInt(wc)) * 1000.0 / w_ms });
 
-    wg.reset();
-    timter.reset();
-
-    // Random Read phase
-    const per_r = rc / tc;
-    for (0..tc) |thid| {
-        wg.start();
-        _ = std.Thread.spawn(.{}, randomReader, .{ thid, &db, per_r, 0, total, &wg }) catch unreachable;
+        wg.reset();
+        timter.reset();
     }
-    wg.wait();
-    const r_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
-    std.debug.print("Read: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ rc, r_ms, @as(f64, @floatFromInt(rc)) * 1000.0 / r_ms });
+
+    if (rc != 0) {
+        // Random Read phase
+        const per_r = rc / tc;
+        for (0..tc) |thid| {
+            wg.start();
+            _ = std.Thread.spawn(.{}, randomReader, .{ thid, &db, per_r, 0, total, &wg }) catch unreachable;
+        }
+        wg.wait();
+        const r_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
+        std.debug.print("Read: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ rc, r_ms, @as(f64, @floatFromInt(rc)) * 1000.0 / r_ms });
+    }
 }
