@@ -3,6 +3,9 @@ const clap = @import("clap");
 const rocksdb = @import("rocksdb");
 
 const DB = rocksdb.Database(.Multiple);
+const valLen = 110;
+const keyLen = 32;
+const randLen = valLen - keyLen;
 
 var mutex = std.Thread.Mutex{};
 var total: u64 = 0;
@@ -10,6 +13,7 @@ var init: u64 = 0;
 var wc: u64 = 0;
 var rc: u64 = 0;
 var ver: u64 = 0;
+var randBytes: [randLen]u8 = .{0} ** randLen;
 
 fn randomWriter(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) !void {
     defer wg.finish();
@@ -17,9 +21,10 @@ fn randomWriter(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg
     var timer = try std.time.Timer.start();
     while (i < count) : (i += 1) {
         const val = std.crypto.random.intRangeLessThan(usize, start, end);
-        var bs: [110]u8 = .{0} ** 110;
-        std.mem.writeInt(u64, bs[24..32], @byteSwap(val), .little);
-        try db.put(bs[0..32], bs[0..], .{});
+        var bs: [valLen]u8 = .{0} ** valLen;
+        std.mem.writeInt(u64, bs[keyLen-8..keyLen], @byteSwap(val), .little);
+        std.mem.copyForwards(comptime u8, bs[keyLen..], randBytes[0..]);
+        try db.put(bs[0..keyLen], bs[0..], .{});
         if (ver >= 3 and i % 100_000 == 0) {
             std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
@@ -33,8 +38,8 @@ fn randomReader(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg
     var timer = try std.time.Timer.start();
     while (i < count) : (i += 1) {
         const val = std.crypto.random.intRangeLessThan(usize, start, end);
-        var bs: [32]u8 = .{0} ** 32;
-        std.mem.writeInt(u64, bs[24..32], @byteSwap(val), .little);
+        var bs: [keyLen]u8 = .{0} ** keyLen;
+        std.mem.writeInt(u64, bs[keyLen-8..keyLen], @byteSwap(val), .little);
         _ = try db.get(bs[0..], .{});
         if (ver >= 3 and i % 100_000 == 0) {
             std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
@@ -48,9 +53,10 @@ fn writer(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
     var i: usize = 0;
     var timer = try std.time.Timer.start();
     while (i < count) : (i += 1) {
-        var bs: [110]u8 = .{0} ** 110;
-        std.mem.writeInt(u64, bs[24..32], @byteSwap(thid * count + i), .little);
-        try db.put(bs[0..32], bs[0..], .{});
+        var bs: [valLen]u8 = .{0} ** valLen;
+        std.mem.writeInt(u64, bs[keyLen-8..keyLen], @byteSwap(thid * count + i), .little);
+        std.mem.copyForwards(comptime u8, bs[keyLen..], randBytes[0..]);
+        try db.put(bs[0..keyLen], bs[0..], .{});
         if (ver >= 3 and i % 100_000 == 0) {
             std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
@@ -63,8 +69,8 @@ fn reader(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
     var i: usize = 0;
     var timer = try std.time.Timer.start();
     while (i < count) : (i += 1) {
-        var bs: [32]u8 = .{0} ** 32;
-        std.mem.writeInt(u64, bs[24..32], @byteSwap(thid * count + i), .little);
+        var bs: [keyLen]u8 = .{0} ** keyLen;
+        std.mem.writeInt(u64, bs[keyLen-8..keyLen], @byteSwap(thid * count + i), .little);
         _ = try db.get(bs[0..], .{});
         if (ver >= 3 and i % 100_000 == 0) {
             std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
@@ -122,6 +128,8 @@ pub fn main() !void {
 
     var timter = try std.time.Timer.start();
     var wg: std.Thread.WaitGroup = .{};
+    
+    std.crypto.random.bytes(randBytes)
 
     if (init != 0) {
         // Init Write phase
