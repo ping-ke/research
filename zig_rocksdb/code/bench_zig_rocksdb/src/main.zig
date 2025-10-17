@@ -2,11 +2,10 @@ const std = @import("std");
 const clap = @import("clap");
 const rocksdb = @import("rocksdb");
 
-const keyprefix: [4]u8 = [_]u8{ 'k', 'e', 'y', '-' };
-const valprefix: [4]u8 = [_]u8{ 'v', 'a', 'l', '-' };
 const DB = rocksdb.Database(.Multiple);
 
 var mutex = std.Thread.Mutex{};
+var total: u64 = 0;
 var init: u64 = 0;
 var wc: u64 = 0;
 var rc: u64 = 0;
@@ -22,10 +21,10 @@ fn randomWriter(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg
         std.mem.writeInt(u64, bs[24..32], @byteSwap(val), .little);
         try db.put(bs[0..32], bs[0..], .{});
         if (ver >= 3 and i % 100_000 == 0) {
-            std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
+            std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
     }
-    std.debug.print("thread {} written done used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
+    std.debug.print("thread {} written done used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
 }
 
 fn randomReader(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) !void {
@@ -38,10 +37,10 @@ fn randomReader(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg
         std.mem.writeInt(u64, bs[24..32], @byteSwap(val), .little);
         _ = try db.get(bs[0..], .{});
         if (ver >= 3 and i % 100_000 == 0) {
-            std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
+            std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
     }
-    std.debug.print("thread {} read done used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
+    std.debug.print("thread {} read done used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
 }
 
 fn writer(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
@@ -52,11 +51,11 @@ fn writer(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
         var bs: [110]u8 = .{0} ** 110;
         std.mem.writeInt(u64, bs[24..32], @byteSwap(thid * count + i), .little);
         try db.put(bs[0..32], bs[0..], .{});
-        if (ver >= 3 and i % 10_000 == 0) {
-            std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
+        if (ver >= 3 and i % 100_000 == 0) {
+            std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
     }
-    std.debug.print("thread {} written done used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
+    std.debug.print("thread {} written done used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
 }
 
 fn reader(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
@@ -67,11 +66,11 @@ fn reader(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
         var bs: [32]u8 = .{0} ** 32;
         std.mem.writeInt(u64, bs[24..32], @byteSwap(thid * count + i), .little);
         _ = try db.get(bs[0..], .{});
-        if (ver >= 3 and i % 10_000 == 0) {
-            std.debug.print("thread {} used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
+        if (ver >= 3 and i % 100_000 == 0) {
+            std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
     }
-    std.debug.print("thread {} read done used time {}ns, hps {}\n", .{ thid, timer.read(), i * 1_000_000_000 / timer.read() });
+    std.debug.print("thread {} read done used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
 }
 
 pub fn main() !void {
@@ -84,7 +83,8 @@ pub fn main() !void {
     // We can use `parseParamsComptime` to parse a string into an array of `Param(Help)`.
     const params = comptime clap.parseParamsComptime(
         \\-h, --help              Display this help and exit.
-        \\-i, --init <u64>        Number of kv to insert before test, default 0 means already have data in the db.
+        \\-i, --init <u64>        Need to insert kvs before test, default 0 means already have data in the db.
+        \\-T, --total <u64>       Number of kvs to insert before test, default value is 1_000_000_000.
         \\-w, --write <u64>       Number of write during the test.
         \\-r, --read <u64>        Number of read count during the test.
         \\-v, --verbosity <u64>   Verbosity.
@@ -106,6 +106,7 @@ pub fn main() !void {
     defer res.deinit();
 
     init = res.args.init orelse 0;
+    total = res.args.total orelse 1_000_000_000;
     wc = res.args.write orelse 1_000_000;
     rc = res.args.read orelse 1_000_000;
     ver = res.args.verbosity orelse 3;
@@ -122,41 +123,41 @@ pub fn main() !void {
     var timter = try std.time.Timer.start();
     var wg: std.Thread.WaitGroup = .{};
 
-    // Init Write phase
-    const per_i = (init + wc) / tc;
-    for (0..tc) |thid| {
-        wg.start();
-        _ = std.Thread.spawn(.{}, writer, .{ thid, &db, per_i, &wg }) catch unreachable;
+    if (init != 0) {
+        // Init Write phase
+        const per_i = total / tc;
+        for (0..tc) |thid| {
+            wg.start();
+            _ = std.Thread.spawn(.{}, writer, .{ thid, &db, per_i, &wg }) catch unreachable;
+        }
+        wg.wait();
+        const i_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
+        std.debug.print("Init write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ total, i_ms, @as(f64, @floatFromInt(total)) * 1000.0 / i_ms });
+
+        wg.reset();
+        timter.reset();
     }
-    wg.wait();
-    const i_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
-    std.debug.print("Init write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ init + wc, i_ms, @as(f64, @floatFromInt(init + wc)) * 1000.0 / i_ms });
 
     // Random Write phase
-    wg.reset();
-    timter.reset();
-
     const per_w = wc / tc;
     for (0..tc) |thid| {
         wg.start();
-        _ = std.Thread.spawn(.{}, randomWriter, .{ thid, &db, per_w, 0, wc + init, &wg }) catch unreachable;
+        _ = std.Thread.spawn(.{}, randomWriter, .{ thid, &db, per_w, 0, total, &wg }) catch unreachable;
     }
     wg.wait();
     const w_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
     std.debug.print("write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ wc, w_ms, @as(f64, @floatFromInt(wc)) * 1000.0 / w_ms });
 
-    // Random Read phase
     wg.reset();
     timter.reset();
 
+    // Random Read phase
     const per_r = rc / tc;
     for (0..tc) |thid| {
         wg.start();
-        _ = std.Thread.spawn(.{}, randomReader, .{ thid, &db, per_r, 0, wc + init, &wg }) catch unreachable;
+        _ = std.Thread.spawn(.{}, randomReader, .{ thid, &db, per_r, 0, total, &wg }) catch unreachable;
     }
     wg.wait();
     const r_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
     std.debug.print("Read: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ rc, r_ms, @as(f64, @floatFromInt(rc)) * 1000.0 / r_ms });
-
-    std.debug.print("used time {}ns, hps {}\n", .{ timter.read(), 1000_000_000 * init / timter.read() });
 }
