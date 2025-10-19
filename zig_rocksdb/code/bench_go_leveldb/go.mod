@@ -1,6 +1,6 @@
 module bench_go_leveldb
 
-go 1.23.11
+go 1.23.0
 
 require github.com/syndtr/goleveldb v1.0.0
 
