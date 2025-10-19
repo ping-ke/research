@@ -27,7 +27,7 @@ fn randomWriter(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg
         const s = (rv % keyLen) * valLen;
         std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(rv), .little);
         try db.put(key[0..], randBytes[s .. s + valLen], .{});
-        if (ver >= 3 and i % 100_000 == 0 and i > 0) {
+        if (ver >= 3 and i % 1_000_000 == 0 and i > 0) {
             std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
     }
@@ -46,7 +46,7 @@ fn randomReader(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg
         const rv = r.intRangeAtMost(usize, start, end);
         std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(rv), .little);
         _ = try db.get(key[0..], .{});
-        if (ver >= 3 and i % 100_000 == 0 and i > 0) {
+        if (ver >= 3 and i % 1_000_000 == 0 and i > 0) {
             std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
     }
@@ -64,7 +64,7 @@ fn writer(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
         const s = (idx % keyLen) * valLen;
         std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(idx), .little);
         try db.put(key[0..], randBytes[s .. s + valLen], .{});
-        if (ver >= 3 and i % 100_000 == 0 and i > 0) {
+        if (ver >= 3 and i % 1_000_000 == 0 and i > 0) {
             std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
     }
@@ -80,7 +80,7 @@ fn reader(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
     while (i < count) : (i += 1) {
         std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(thid * count + i), .little);
         _ = try db.get(key[0..], .{});
-        if (ver >= 3 and i % 100_000 == 0 and i > 0) {
+        if (ver >= 3 and i % 1_000_000 == 0 and i > 0) {
             std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
     }
@@ -120,11 +120,11 @@ pub fn main() !void {
     defer res.deinit();
 
     init = res.args.init orelse 0;
-    total = res.args.total orelse 1_000_000_000;
-    wc = res.args.write orelse 1_000_000;
-    rc = res.args.read orelse 1_000_000;
+    total = res.args.total orelse 4_000_000_000;
+    wc = res.args.write orelse 10_000_000;
+    rc = res.args.read orelse 10_000_000;
     ver = res.args.verbosity orelse 3;
-    const tc = res.args.thread orelse 1;
+    const tc = res.args.thread orelse 8;
 
     var db = try DB.open(
         allocator,

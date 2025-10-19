@@ -21,10 +21,10 @@ const (
 var (
 	ni       = flag.Bool("needInit", false, "Need to insert kvs before test, default false")
 	tc       = flag.Int64("total", 4000000000, "Number of kvs to insert before test, default value is 4_000_000_000")
-	wc       = flag.Int64("write", 1000000, "Number of write count during the test")
-	rc       = flag.Int64("read", 1000000, "Number of read count during the test")
+	wc       = flag.Int64("write", 10000000, "Number of write count during the test")
+	rc       = flag.Int64("read", 10000000, "Number of read count during the test")
 	t        = flag.Int64("thread", 8, "Number of threads")
-	bi       = flag.Bool("batchInsert", true, "Number of threads")
+	bi       = flag.Bool("batchInsert", true, "Enable batch insert or not")
 	dbPath   = flag.String("dbpath", "./data/bench_go_leveldb", "Data directory for the databases")
 	logLevel = flag.Int64("loglevel", 3, "Log level")
 )
@@ -42,8 +42,8 @@ func randomWrite(tid, count, start, end int64, db *leveldb.DB, wg *sync.WaitGrou
 		rv := r.Int63n(end-start) + start
 		s := (rv % keyLen) * valLen
 		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
-		db.Put(key, randBytes[s:s+valLen], nil)
-		if *logLevel >= 3 && i%100000 == 0 && i > 0 {
+		_ = db.Put(key, randBytes[s:s+valLen], nil)
+		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
 			ms := time.Since(st).Milliseconds()
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
@@ -61,7 +61,7 @@ func randomRead(tid, count, start, end int64, db *leveldb.DB, wg *sync.WaitGroup
 		rv := r.Int63n(end-start) + start
 		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
 		_, _ = db.Get(key, nil)
-		if *logLevel >= 3 && i%100000 == 0 && i > 0 {
+		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
 			ms := time.Since(st).Milliseconds()
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
@@ -87,7 +87,7 @@ func batchWrite(tid, count int64, db *leveldb.DB, wg *sync.WaitGroup) {
 		} else {
 			continue
 		}
-		if *logLevel >= 3 && i%100000 == 0 && i > 0 {
+		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
 			ms := time.Since(st).Milliseconds()
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
@@ -107,8 +107,8 @@ func seqWrite(tid, count int64, db *leveldb.DB, wg *sync.WaitGroup) {
 		idx := tid*count + i
 		s := (idx % keyLen) * valLen
 		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(idx))
-		db.Put(key, randBytes[s:s+valLen], nil)
-		if *logLevel >= 3 && i%100000 == 0 && i > 0 {
+		_ = db.Put(key, randBytes[s:s+valLen], nil)
+		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
 			ms := time.Since(st).Milliseconds()
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
@@ -124,7 +124,7 @@ func seqRead(tid, count int64, db *leveldb.DB, wg *sync.WaitGroup) {
 	for i := int64(0); i < count; i++ {
 		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(tid*count+i))
 		_, _ = db.Get(key, nil)
-		if *logLevel >= 3 && i%100000 == 0 && i > 0 {
+		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
 			ms := time.Since(st).Microseconds()
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
