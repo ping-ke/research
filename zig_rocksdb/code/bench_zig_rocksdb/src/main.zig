@@ -18,11 +18,12 @@ fn randomWriter(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
-    var rng = std.Random.DefaultPrng.init(@intCast(std.time.timestamp()));
+    var g = std.Random.DefaultPrng.init(@intCast(std.time.nanoTimestamp()));
+    const r = g.random();
     var key: [keyLen]u8 = undefined;
     @memset(key[0..], 0);
     while (i < count) : (i += 1) {
-        const rv = rng.randomLessThan(end - start) + start;
+        const rv = r.intRangeAtMost(usize, start, end); //rng.randomLessThan(end - start) + start;
         const s = (rv % keyLen) * valLen;
         std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(rv), .little);
         try db.put(key[0..], randBytes[s .. s + valLen], .{});
@@ -37,11 +38,12 @@ fn randomReader(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
-    var rng = std.Random.DefaultPrng.init(@intCast(std.time.timestamp()));
+    var g = std.Random.DefaultPrng.init(@intCast(std.time.nanoTimestamp()));
+    const r = g.random();
     var key: [valLen]u8 = undefined;
     @memset(key[0..], 0);
     while (i < count) : (i += 1) {
-        const rv = rng.randomLessThan(end - start) + start;
+        const rv = r.intRangeAtMost(usize, start, end);
         std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(rv), .little);
         _ = try db.get(key[0..], .{});
         if (ver >= 3 and i % 100_000 == 0 and i > 0) {
