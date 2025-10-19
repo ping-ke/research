@@ -18,7 +18,7 @@ fn randomWriter(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
-    var rng = std.Random.DefaultCsprng.init(std.time.nanoTimestamp());
+    var rng = std.Random.DefaultPrng.init(std.time.nanoTimestamp());
     var key: [keyLen]u8 = undefined;
     @memset(key[0..], 0);
     while (i < count) : (i += 1) {
@@ -37,7 +37,7 @@ fn randomReader(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
-    var rng = std.Random.DefaultCsprng.init(std.time.nanoTimestamp());
+    var rng = std.Random.DefaultPrng.init(std.time.nanoTimestamp());
     var key: [valLen]u8 = undefined;
     @memset(key[0..], 0);
     while (i < count) : (i += 1) {
