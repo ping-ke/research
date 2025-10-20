@@ -188,12 +188,12 @@ pub fn main() !void {
     rocksdb.rocksdb_block_based_options_set_block_cache(table_opts, cache);
     rocksdb.rocksdb_options_set_block_based_table_factory(opts, table_opts);
 
-    const db = rocksdb.rocksdb_open(opts, args.dbPath.ptr, &err);
-    if (err != null) {
-        std.debug.print("open db error: {s}\n", .{err.?});
-        rocksdb.rocksdb_free(err.?);
-        return;
+    const db_opt = rocksdb.rocksdb_open(opts, args.dbPath.ptr, &err);
+    if (db_opt == null) {
+        std.debug.print("Failed to open RocksDB: {s}\n", .{err.?});
+        return error.OpenFailed;
     }
+    const db = db_opt.?;
     defer rocksdb.rocksdb_close(db);
 
     var wg = std.Thread.WaitGroup{};
