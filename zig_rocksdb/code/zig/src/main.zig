@@ -36,7 +36,7 @@ fn batchWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t, args: *const Ar
     const batch = rocksdb.rocksdb_writebatch_create();
     defer rocksdb.rocksdb_writebatch_destroy(batch);
 
-    var err: ?[*:0]const u8 = null;
+    var err: [*c]u8 = null;
 
     for (0..count) |i| {
         const idx: u64 = @intCast(thid * count + i);
@@ -91,7 +91,7 @@ fn randomWrite(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb
     defer rocksdb.rocksdb_writeoptions_destroy(wopt);
     rocksdb.rocksdb_writeoptions_set_sync(wopt, 0);
 
-    var err: ?[*:0]const u8 = null;
+    var err: [*c]u8 = null;
 
     for (0..count) |i| {
         const rv = r.intRangeAtMost(usize, start, end);
@@ -134,7 +134,7 @@ fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.
     rocksdb.rocksdb_readoptions_set_verify_checksums(ropt, 0);
     rocksdb.rocksdb_readoptions_set_fill_cache(ropt, 0);
 
-    var err: ?[*:0]const u8 = null;
+    var err: [*c]u8 = null;
     var vallen: usize = 0;
 
     for (0..count) |i| {
