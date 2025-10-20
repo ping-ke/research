@@ -4,13 +4,13 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 	"log"
 	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 const (

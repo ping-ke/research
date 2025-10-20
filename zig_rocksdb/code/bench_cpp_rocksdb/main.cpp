@@ -36,8 +36,6 @@ void fillRandBytes() {
 }
 
 inline void putKey(uint8_t *key, uint64_t v) {
-    // zero prefix
-    memset(key, 0, keyLen);
     // put big-endian uint64 at the tail
     for (int i = 0; i < 8; ++i) {
         key[keyLen - 1 - i] = static_cast<uint8_t>((v >> (i * 8)) & 0xFF);
@@ -47,6 +45,7 @@ inline void putKey(uint8_t *key, uint64_t v) {
 void batchWrite(int tid, long long count, rocksdb::DB* db, const Args &args) {
     auto st = std::chrono::steady_clock::now();
     uint8_t key[keyLen];
+    memset(key, 0, keyLen);
     rocksdb::WriteBatch batch;
     rocksdb::WriteOptions wopt;
     // turn off sync for speed by default; user can edit if wants durability
@@ -65,7 +64,10 @@ void batchWrite(int tid, long long count, rocksdb::DB* db, const Args &args) {
                 std::cerr << "batch write error: " << stt.ToString() << std::endl;
             }
             batch.Clear();
+        } else {
+            continue;
         }
+        
 
         if (args.logLevel >= 3 && i > 0 && i % 1000000 == 0) {
             auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -86,6 +88,7 @@ void batchWrite(int tid, long long count, rocksdb::DB* db, const Args &args) {
 void seqWrite(int tid, long long count, rocksdb::DB* db, const Args &args) {
     auto st = std::chrono::steady_clock::now();
     uint8_t key[keyLen];
+    memset(key, 0, keyLen);
     rocksdb::WriteOptions wopt;
     wopt.sync = false;
 
@@ -99,7 +102,7 @@ void seqWrite(int tid, long long count, rocksdb::DB* db, const Args &args) {
             std::cerr << "put error: " << s2.ToString() << std::endl;
         }
 
-        if (args.logLevel >= 3 && i > 0 && i % 1000000 == 0) {
+        if (args.logLevel >= 3 && i % 1000000 == 0 && i > 0) {
             auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - st).count();
             std::cout << "thread " << tid << " used " << ms << " ms, hps " << (i * 1000 / ms) << std::endl;
@@ -113,6 +116,7 @@ void seqWrite(int tid, long long count, rocksdb::DB* db, const Args &args) {
 void randomWrite(int tid, long long count, long long start, long long end, rocksdb::DB* db, const Args &args) {
     auto st = std::chrono::steady_clock::now();
     uint8_t key[keyLen];
+    memset(key, 0, keyLen);
     std::mt19937_64 rng(static_cast<unsigned long>(
         std::chrono::steady_clock::now().time_since_epoch().count() + tid));
     std::uniform_int_distribution<long long> dist(start, std::max(start, end - 1));
@@ -130,7 +134,7 @@ void randomWrite(int tid, long long count, long long start, long long end, rocks
             std::cerr << "random put err: " << stt.ToString() << std::endl;
         }
 
-        if (args.logLevel >= 3 && i > 0 && i % 1000000 == 0) {
+        if (args.logLevel >= 3 && i % 1000000 == 0 && i > 0) {
             auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - st).count();
             std::cout << "thread " << tid << " used " << ms << " ms, hps " << (i * 1000 / ms) << std::endl;
@@ -144,7 +148,7 @@ void randomWrite(int tid, long long count, long long start, long long end, rocks
 void randomRead(int tid, long long count, long long start, long long end, rocksdb::DB* db, const Args &args) {
     auto st = std::chrono::steady_clock::now();
     uint8_t key[keyLen];
-    std::string value;
+    memset(key, 0, keyLen);
     std::mt19937_64 rng(static_cast<unsigned long>(
         std::chrono::steady_clock::now().time_since_epoch().count() + tid));
     std::uniform_int_distribution<long long> dist(start, std::max(start, end - 1));
@@ -156,14 +160,13 @@ void randomRead(int tid, long long count, long long start, long long end, rocksd
     for (long long i = 0; i < count; ++i) {
         uint64_t rv = static_cast<uint64_t>(dist(rng));
         putKey(key, rv);
-        value.clear();
         rocksdb::Status stt = db->Get(ropt, rocksdb::Slice(reinterpret_cast<char*>(key), keyLen), &value);
         // ignore not found
         if (!stt.ok() && !stt.IsNotFound()) {
             std::cerr << "random read err: " << stt.ToString() << std::endl;
         }
 
-        if (args.logLevel >= 3 && i > 0 && i % 1000000 == 0) {
+        if (args.logLevel >= 3 && i % 1000000 == 0 && i > 0) {
             auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - st).count();
             std::cout << "thread " << tid << " used " << ms << " ms, hps " << (i * 1000 / ms) << std::endl;
