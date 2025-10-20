@@ -1,4 +1,3 @@
-
 ## Run commands: 
 ```bash
 sudo apt update
@@ -20,6 +19,14 @@ g++ -std=c++20 main.cpp -o bench_cpp_rocksdb \
 mkdir -p ./data/testdb
 
 # 初始化填充（-n 表示需要初始化写入）
-./bench_cpp_rocksdb -n -T 40000000 -t 8 -w 1000000 -r 1000000 -p ./data/testdb -l 3
+./bench_cpp_rocksdb -n -T 40000000 -t 16 -w 1000000 -r 1000000 -p ./data/testdb -l 3
+# 参数说明：
+# -n：是否需要初始化大量 key（boolean flag，存在即为 true）
+# -T：total 
+# -t: threads
+# -w：写操作总数
+# -r：读操作总数
+# -p：db path
+# -l：log level
 ```
 
