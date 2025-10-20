@@ -149,6 +149,7 @@ void randomRead(int tid, long long count, long long start, long long end, rocksd
     auto st = std::chrono::steady_clock::now();
     uint8_t key[keyLen];
     memset(key, 0, keyLen);
+    std::string value;
     std::mt19937_64 rng(static_cast<unsigned long>(
         std::chrono::steady_clock::now().time_since_epoch().count() + tid));
     std::uniform_int_distribution<long long> dist(start, std::max(start, end - 1));
@@ -160,6 +161,7 @@ void randomRead(int tid, long long count, long long start, long long end, rocksd
     for (long long i = 0; i < count; ++i) {
         uint64_t rv = static_cast<uint64_t>(dist(rng));
         putKey(key, rv);
+        value.clear();
         rocksdb::Status stt = db->Get(ropt, rocksdb::Slice(reinterpret_cast<char*>(key), keyLen), &value);
         // ignore not found
         if (!stt.ok() && !stt.IsNotFound()) {
