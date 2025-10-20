@@ -202,11 +202,13 @@ int main(int argc, char** argv) {
     rocksdb::Options options;
     options.create_if_missing = true;
     options.IncreaseParallelism(); // use background threads
+    options.compression = rocksdb::kNoCompression;
     options.compaction_style = rocksdb::kCompactionStyleUniversal; // optional, depends on use-case
     options.max_open_files = 512;
     options.write_buffer_size = 64 << 20; // 64MB
     options.max_write_buffer_number = 3;
     options.target_file_size_base = 32 << 20; // 32MB
+    options.max_bytes_for_level_base = 256 << 20; // L1 total size 256MB
 
     // block cache
     rocksdb::BlockBasedTableOptions table_options;
