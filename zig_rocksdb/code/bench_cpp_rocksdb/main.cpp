@@ -72,7 +72,7 @@ void batchWrite(int tid, long long count, rocksdb::DB* db, const Args &args) {
         if (args.logLevel >= 3 && i > 0 && i % 1000000 == 0) {
             auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - st).count();
-            std::cout << "thread " << tid << " used " << ms << " ms, hps " << (i * 1000 / ms) << std::endl;
+            std::cout << "thread " << tid << " used " << ms << " ms insert " << i <<", hps " << (i * 1000 / ms) << std::endl;
         }
     }
 
@@ -105,7 +105,7 @@ void seqWrite(int tid, long long count, rocksdb::DB* db, const Args &args) {
         if (args.logLevel >= 3 && i % 1000000 == 0 && i > 0) {
             auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - st).count();
-            std::cout << "thread " << tid << " used " << ms << " ms, hps " << (i * 1000 / ms) << std::endl;
+            std::cout << "thread " << tid << " used " << ms << " ms insert " << i << ", hps " << (i * 1000 / ms) << std::endl;
         }
     }
 
@@ -137,7 +137,7 @@ void randomWrite(int tid, long long count, long long start, long long end, rocks
         if (args.logLevel >= 3 && i % 1000000 == 0 && i > 0) {
             auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - st).count();
-            std::cout << "thread " << tid << " used " << ms << " ms, hps " << (i * 1000 / ms) << std::endl;
+            std::cout << "thread " << tid << " used " << ms << " ms insert " << i << ", hps " << (i * 1000 / ms) << std::endl;
         }
     }
 
@@ -171,7 +171,7 @@ void randomRead(int tid, long long count, long long start, long long end, rocksd
         if (args.logLevel >= 3 && i % 1000000 == 0 && i > 0) {
             auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - st).count();
-            std::cout << "thread " << tid << " used " << ms << " ms, hps " << (i * 1000 / ms) << std::endl;
+            std::cout << "thread " << tid << " used " << ms << " ms read " << i << ", hps " << (i * 1000 / ms) << std::endl;
         }
     }
 
