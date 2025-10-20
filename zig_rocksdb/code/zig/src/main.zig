@@ -1,30 +1,27 @@
 const std = @import("std");
+const clap = @import("clap");
 const rocksdb = @cImport({
     @cInclude("rocksdb/c.h");
 });
 
 const valLen = 110;
 const keyLen = 32;
+const dbPath = "/tmp/zig-rocksdb-mt";
 
 var randBytes: [valLen * keyLen]u8 = undefined;
 
-const Args = struct {
-    needInit: bool = false,
-    total: u64 = 4_000_000_000,
-    writeCount: u64 = 10_000_000,
-    readCount: u64 = 10_000_000,
-    threads: usize = 8,
-    batchInsert: bool = true,
-    dbPath: []const u8 = "./data/bench_zig_rocksdb",
-    logLevel: usize = 3,
-};
+var total: u64 = 0;
+var needInit: bool = false;
+var wc: u64 = 0;
+var rc: u64 = 0;
+var ver: u64 = 0;
 
 fn fillRandBytes() void {
     var g = std.Random.DefaultPrng.init(@intCast(std.time.nanoTimestamp()));
     g.random().bytes(randBytes[0..]);
 }
 
-fn batchWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t, args: *const Args) !void {
+fn batchWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t) !void {
     var timer = try std.time.Timer.start();
     var key: [keyLen]u8 = undefined;
     @memset(key[0..], 0);
@@ -62,7 +59,7 @@ fn batchWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t, args: *const Ar
             continue;
         }
 
-        if (args.logLevel >= 3 and i % 1_000_000 == 0 and i > 0) {
+        if (ver >= 3 and i % 1_000_000 == 0 and i > 0) {
             const ms = timer.read() / 1_000_000;
             std.debug.print("thread {} used {} ms insert {}/{}\n", .{ thid, ms, i, count });
         }
@@ -80,7 +77,7 @@ fn batchWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t, args: *const Ar
     std.debug.print("thread {} batch write done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
 }
 
-fn randomWrite(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.rocksdb_t, args: *const Args) !void {
+fn randomWrite(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.rocksdb_t) !void {
     var timer = try std.time.Timer.start();
     var key: [keyLen]u8 = undefined;
     @memset(key[0..], 0);
@@ -112,7 +109,7 @@ fn randomWrite(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb
             err = null;
         }
 
-        if (args.logLevel >= 3 and i % 1_000_000 == 0 and i > 0) {
+        if (ver >= 3 and i % 1_000_000 == 0 and i > 0) {
             const ms = timer.read() / 1_000_000;
             std.debug.print("thread {} used {} ms randwrite {}/{}\n", .{ thid, ms, i, count });
         }
@@ -122,7 +119,7 @@ fn randomWrite(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb
     std.debug.print("thread {} random write done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
 }
 
-fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.rocksdb_t, args: *const Args) !void {
+fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.rocksdb_t) !void {
     var timer = try std.time.Timer.start();
     var key: [keyLen]u8 = undefined;
     @memset(key[0..], 0);
@@ -148,7 +145,7 @@ fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.
             err = null;
         }
 
-        if (args.logLevel >= 3 and i % 1_000_000 == 0 and i > 0) {
+        if (ver >= 3 and i % 1_000_000 == 0 and i > 0) {
             const ms = timer.read() / 1_000_000;
             std.debug.print("thread {} used {} ms read {}/{}\n", .{ thid, ms, i, count });
         }
@@ -161,9 +158,40 @@ fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.
 pub fn main() !void {
     // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     // const allocator = gpa.allocator();
+    const allocator = std.heap.page_allocator;
 
-    var args = Args{};
-    const tc = args.threads;
+    // First we specify what parameters our program can take.
+    // We can use `parseParamsComptime` to parse a string into an array of `Param(Help)`.
+    const params = comptime clap.parseParamsComptime(
+        \\-h, --help              Display this help and exit.
+        \\-i, --init <u64>        Need to insert kvs before test, default 0 means already have data in the db.
+        \\-T, --total <u64>       Number of kvs to insert before test, default value is 1_000_000_000.
+        \\-w, --write <u64>       Number of write during the test.
+        \\-r, --read <u64>        Number of read count during the test.
+        \\-v, --verbosity <u64>   Verbosity.
+        \\-t, --thread <u64>      Number of threads.
+    );
+    // Initialize our diagnostics, which can be used for reporting useful errors.
+    // This is optional. You can also pass `.{}` to `clap.parse` if you don't
+    // care about the extra information `Diagnostic` provides.
+    var diag = clap.Diagnostic{};
+    var res = clap.parse(clap.Help, &params, clap.parsers.default, .{
+        .diagnostic = &diag,
+        .allocator = allocator,
+    }) catch |err| {
+        // Report useful error and exit.
+        try diag.reportToFile(.stderr(), err);
+        return err;
+    };
+    defer res.deinit();
+
+    const init = res.args.init orelse 0;
+    needInit = init == 0;
+    total = res.args.total orelse 4_000_000_000;
+    wc = res.args.write orelse 10_000_000;
+    rc = res.args.read orelse 10_000_000;
+    ver = res.args.verbosity orelse 3;
+    const tc = res.args.thread orelse 8;
 
     fillRandBytes();
 
@@ -188,7 +216,7 @@ pub fn main() !void {
     rocksdb.rocksdb_block_based_options_set_block_cache(table_opts, cache);
     rocksdb.rocksdb_options_set_block_based_table_factory(opts, table_opts);
 
-    const db_opt = rocksdb.rocksdb_open(opts, args.dbPath.ptr, &err);
+    const db_opt = rocksdb.rocksdb_open(opts, dbPath.ptr, &err);
     if (db_opt == null) {
         std.debug.print("Failed to open RocksDB: {s}\n", .{err.?});
         return error.OpenFailed;
@@ -199,16 +227,16 @@ pub fn main() !void {
     var wg = std.Thread.WaitGroup{};
     var timer = try std.time.Timer.start();
     // ---- Init Write ----
-    if (args.needInit and args.total > 0) {
-        const per = args.total / tc;
+    if (needInit and total > 0) {
+        const per = total / tc;
         for (0..tc) |thid| {
             wg.start();
-            _ = std.Thread.spawn(.{}, batchWrite, .{ thid, per, db, &args }) catch unreachable;
+            _ = std.Thread.spawn(.{}, batchWrite, .{ thid, per, db }) catch unreachable;
         }
         wg.wait();
         const dur_ms = @as(f64, @floatFromInt(timer.read())) / 1_000_000.0;
         std.debug.print("Init write: {} ops in {:.2} ms ({:.2} ops/s)\n", .{
-            args.total, dur_ms, @as(f64, @floatFromInt(args.total)) * 1000.0 / dur_ms,
+            total, dur_ms, @as(f64, @floatFromInt(total)) * 1000.0 / dur_ms,
         });
 
         wg.reset();
@@ -216,16 +244,16 @@ pub fn main() !void {
     }
 
     // ---- Random Write ----
-    if (args.writeCount > 0) {
-        const per = args.writeCount / tc;
+    if (wc > 0) {
+        const per = wc / tc;
         for (0..tc) |thid| {
             wg.start();
-            _ = std.Thread.spawn(.{}, randomWrite, .{ thid, per, 0, args.total, db, &args }) catch unreachable;
+            _ = std.Thread.spawn(.{}, randomWrite, .{ thid, per, 0, total, db }) catch unreachable;
         }
         wg.wait();
         const dur_ms = @as(f64, @floatFromInt(timer.read())) / 1_000_000.0;
         std.debug.print("Random update: {} ops in {:.2} ms ({:.2} ops/s)\n", .{
-            args.writeCount, dur_ms, @as(f64, @floatFromInt(args.writeCount)) * 1000.0 / dur_ms,
+            wc, dur_ms, @as(f64, @floatFromInt(wc)) * 1000.0 / dur_ms,
         });
 
         wg.reset();
@@ -233,16 +261,16 @@ pub fn main() !void {
     }
 
     // ---- Random Read ----
-    if (args.readCount > 0) {
-        const per = args.readCount / tc;
+    if (rc > 0) {
+        const per = rc / tc;
         for (0..tc) |thid| {
             wg.start();
-            _ = std.Thread.spawn(.{}, randomRead, .{ thid, per, 0, args.total, db, &args }) catch unreachable;
+            _ = std.Thread.spawn(.{}, randomRead, .{ thid, per, 0, total, db }) catch unreachable;
         }
         wg.wait();
         const dur_ms = @as(f64, @floatFromInt(timer.read())) / 1_000_000.0;
         std.debug.print("Random read: {} ops in {:.2} ms ({:.2} ops/s)\n", .{
-            args.readCount, dur_ms, @as(f64, @floatFromInt(args.readCount)) * 1000.0 / dur_ms,
+            rc, dur_ms, @as(f64, @floatFromInt(rc)) * 1000.0 / dur_ms,
         });
     }
 }

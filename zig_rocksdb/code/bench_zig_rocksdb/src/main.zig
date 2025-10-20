@@ -6,7 +6,6 @@ const DB = rocksdb.Database(.Multiple);
 const valLen = 110;
 const keyLen = 32;
 
-var mutex = std.Thread.Mutex{};
 var total: u64 = 0;
 var init: u64 = 0;
 var wc: u64 = 0;
@@ -134,7 +133,7 @@ pub fn main() !void {
         },
     );
 
-    var timter = try std.time.Timer.start();
+    var timer = try std.time.Timer.start();
     var wg: std.Thread.WaitGroup = .{};
 
     std.crypto.random.bytes(randBytes[0..]);
@@ -147,11 +146,11 @@ pub fn main() !void {
             _ = std.Thread.spawn(.{}, writer, .{ thid, &db, per_i, &wg }) catch unreachable;
         }
         wg.wait();
-        const i_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
+        const i_ms = @as(f64, @floatFromInt(timer.read())) / 1_000_000.0;
         std.debug.print("Init write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ total, i_ms, @as(f64, @floatFromInt(total)) * 1000.0 / i_ms });
 
         wg.reset();
-        timter.reset();
+        timer.reset();
     }
 
     if (wc != 0) {
@@ -162,11 +161,11 @@ pub fn main() !void {
             _ = std.Thread.spawn(.{}, randomWriter, .{ thid, &db, per_w, 0, total, &wg }) catch unreachable;
         }
         wg.wait();
-        const w_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
+        const w_ms = @as(f64, @floatFromInt(timer.read())) / 1_000_000.0;
         std.debug.print("write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ wc, w_ms, @as(f64, @floatFromInt(wc)) * 1000.0 / w_ms });
 
         wg.reset();
-        timter.reset();
+        timer.reset();
     }
 
     if (rc != 0) {
@@ -177,7 +176,7 @@ pub fn main() !void {
             _ = std.Thread.spawn(.{}, randomReader, .{ thid, &db, per_r, 0, total, &wg }) catch unreachable;
         }
         wg.wait();
-        const r_ms = @as(f64, @floatFromInt(timter.read())) / 1_000_000.0;
+        const r_ms = @as(f64, @floatFromInt(timer.read())) / 1_000_000.0;
         std.debug.print("Read: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ rc, r_ms, @as(f64, @floatFromInt(rc)) * 1000.0 / r_ms });
     }
 }
