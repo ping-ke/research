@@ -179,10 +179,11 @@ int main(int argc, char** argv) {
 
     int opt;
     // simple getopt parsing, keep param names similar to Go flags
-    while ((opt = getopt(argc, argv, "n:t:w:r:p:l:")) != -1) {
+    while ((opt = getopt(argc, argv, "n:t:w:r:p:l:T:")) != -1) {
         switch (opt) {
             case 'n': args.needInit = true; break;
-            case 't': args.total = std::stoll(optarg); break;
+            case 'T': args.total = std::stoll(optarg); break;
+            case 't': args.threads = std::stoll(optarg); break;
             case 'w': args.writeCount = std::stoll(optarg); break;
             case 'r': args.readCount = std::stoll(optarg); break;
             case 'p': args.dbPath = std::string(optarg); break;
