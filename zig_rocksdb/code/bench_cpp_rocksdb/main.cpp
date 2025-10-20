@@ -24,7 +24,7 @@ struct Args {
     long long readCount = 10000000LL;
     int threads = 8;
     bool batchInsert = true;
-    std::string dbPath = "./data/bench_rocksdb";
+    std::string dbPath = "./data/bench_cpp_rocksdb";
     int logLevel = 3;
 };
 
