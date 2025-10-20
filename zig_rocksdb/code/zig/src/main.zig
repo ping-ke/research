@@ -24,10 +24,6 @@ fn fillRandBytes() void {
     g.random().bytes(randBytes[0..]);
 }
 
-fn putKey(buf: []u8, v: u64) void {
-    for (0..8) |i| buf[keyLen - 1 - i] = @intCast(u8, (v >> (i * 8)) & 0xFF);
-}
-
 fn batchWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t, args: *const Args) !void {
     var timer = try std.time.Timer.start();
     var key: [keyLen]u8 = undefined;
@@ -44,7 +40,7 @@ fn batchWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t, args: *const Ar
 
     for (0..count) |i| {
         const idx: u64 = @intCast(thid * count + i);
-        putKey(key[0..], idx);
+        std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(idx), .little);
         const s = (idx % keyLen) * valLen;
         rocksdb.rocksdb_writebatch_put(
             batch,
@@ -99,7 +95,7 @@ fn randomWrite(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb
 
     for (0..count) |i| {
         const rv = r.intRangeAtMost(usize, start, end);
-        putKey(key[0..], rv);
+        std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(rv), .little);
         const s = (rv % keyLen) * valLen;
         rocksdb.rocksdb_put(
             db,
@@ -143,7 +139,7 @@ fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.
 
     for (0..count) |i| {
         const rv = r.intRangeAtMost(usize, start, end);
-        putKey(key[0..], rv);
+        std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(rv), .little);
         const val_ptr = rocksdb.rocksdb_get(db, ropt, key[0..keyLen].ptr, keyLen, &vallen, &err);
         if (val_ptr != null) rocksdb.rocksdb_free(val_ptr);
         if (err != null) {
