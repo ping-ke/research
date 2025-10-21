@@ -22,7 +22,7 @@ fn randomWrite(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg:
     var key: [keyLen]u8 = undefined;
     @memset(key[0..], 0);
     while (i < count) : (i += 1) {
-        const rv = r.intRangeAtMost(usize, start, end); //rng.randomLessThan(end - start) + start;
+        const rv = r.intRangeAtMost(usize, start, end);
         const s = (rv % keyLen) * valLen;
         std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(rv), .little);
         try db.put(key[0..], randBytes[s .. s + valLen], .{});

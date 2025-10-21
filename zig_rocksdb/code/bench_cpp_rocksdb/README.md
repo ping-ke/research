@@ -16,10 +16,10 @@ g++ -std=c++20 main.cpp -o bench_cpp_rocksdb \
   -lrocksdb -lpthread -lz -lsnappy -lzstd -llz4 -lbz2
 
 # 创建数据目录
-mkdir -p ./data/testdb
+mkdir -p ./data
 
 # 初始化填充（-n 表示需要初始化写入）
-./bench_cpp_rocksdb -n -T 40000000 -t 16 -w 1000000 -r 1000000 -p ./data/testdb -l 3
+./bench_cpp_rocksdb -n -T 40000000 -t 16 -w 1000000 -r 1000000 
 # 参数说明：
 # -n：是否需要初始化大量 key（boolean flag，存在即为 true）
 # -T：total 

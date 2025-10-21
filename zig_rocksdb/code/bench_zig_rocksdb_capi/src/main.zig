@@ -17,7 +17,8 @@ var writeCount: u64 = 0;
 var readCount: u64 = 0;
 var verbosity: u64 = 0;
 
-fn batchWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t) !void {
+fn batchWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t, wg: *std.Thread.WaitGroup) !void {
+    defer wg.finish();
     var timer = try std.time.Timer.start();
     var key: [keyLen]u8 = undefined;
     @memset(key[0..], 0);
@@ -73,7 +74,8 @@ fn batchWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t) !void {
     std.debug.print("thread {} batch write done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
 }
 
-fn seqWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t) !void {
+fn seqWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t, wg: *std.Thread.WaitGroup) !void {
+    defer wg.finish();
     var timer = try std.time.Timer.start();
     var key: [keyLen]u8 = undefined;
     @memset(key[0..], 0);
@@ -112,7 +114,8 @@ fn seqWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t) !void {
     std.debug.print("thread {} random write done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
 }
 
-fn randomWrite(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.rocksdb_t) !void {
+fn randomWrite(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.rocksdb_t, wg: *std.Thread.WaitGroup) !void {
+    defer wg.finish();
     var timer = try std.time.Timer.start();
     var key: [keyLen]u8 = undefined;
     @memset(key[0..], 0);
@@ -154,7 +157,8 @@ fn randomWrite(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb
     std.debug.print("thread {} random write done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
 }
 
-fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.rocksdb_t) !void {
+fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.rocksdb_t, wg: *std.Thread.WaitGroup) !void {
+    defer wg.finish();
     var timer = try std.time.Timer.start();
     var key: [keyLen]u8 = undefined;
     @memset(key[0..], 0);
