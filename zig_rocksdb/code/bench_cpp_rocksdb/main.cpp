@@ -22,8 +22,8 @@ struct Args {
     long long total = 4000000000LL;
     long long writeCount = 10000000LL;
     long long readCount = 10000000LL;
-    int threads = 8;
-    bool batchInsert = true;
+    int threads = 32;
+    bool batchInsert = false;
     std::string dbPath = "./data/bench_cpp_rocksdb";
     int logLevel = 3;
 };
@@ -184,9 +184,10 @@ int main(int argc, char** argv) {
 
     int opt;
     // simple getopt parsing, keep param names similar to Go flags
-    while ((opt = getopt(argc, argv, "n:t:w:r:p:l:T:")) != -1) {
+    while ((opt = getopt(argc, argv, "n:t:w:r:p:l:T:b:")) != -1) {
         switch (opt) {
             case 'n': args.needInit = true; break;
+            case 'b': args.batchInsert = true; break;
             case 'T': args.total = std::stoll(optarg); break;
             case 't': args.threads = std::stoll(optarg); break;
             case 'w': args.writeCount = std::stoll(optarg); break;
@@ -223,6 +224,8 @@ int main(int argc, char** argv) {
     }
 
     std::cout << "Threads: " << args.threads << std::endl;
+    std::cout << "Total data: " << args.total " while needInit=" << args.needInit << " and batchInsert=" << args.batchInsert << std::endl;
+    std::cout << "Ops: " << args.writeCount << "write ops and " << args.readCount << " read ops" << std::endl;
 
     // Init writes
     if (args.needInit && args.total > 0) {
