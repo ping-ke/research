@@ -73,7 +73,7 @@ fn batchWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t) !void {
     std.debug.print("thread {} batch write done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
 }
 
-fn seqWrite(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.rocksdb_t) !void {
+fn seqWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t) !void {
     var timer = try std.time.Timer.start();
     var key: [keyLen]u8 = undefined;
     @memset(key[0..], 0);
@@ -264,8 +264,8 @@ pub fn main() !void {
     defer rocksdb.rocksdb_close(db);
 
     std.debug.print("Threads: {}\n", .{threads});
-    std.debug.print("Total data: {} while needInit={} and batchInsert={}\n", .{total, needInit, batchInit});
-    std.debug.print("Ops: {} write ops and {} read ops", .{writeCount, readCount});
+    std.debug.print("Total data: {} while needInit={} and batchInsert={}\n", .{ total, needInit, batchInit });
+    std.debug.print("Ops: {} write ops and {} read ops", .{ writeCount, readCount });
 
     var wg = std.Thread.WaitGroup{};
     var timer = try std.time.Timer.start();
@@ -274,8 +274,11 @@ pub fn main() !void {
         const per = total / threads;
         for (0..threads) |thid| {
             wg.start();
-            if () {}
-            _ = std.Thread.spawn(.{}, batchWrite, .{ thid, per, db }) catch unreachable;
+            if (batchInit) {
+                _ = std.Thread.spawn(.{}, batchWrite, .{ thid, per, db }) catch unreachable;
+            } else {
+                _ = std.Thread.spawn(.{}, seqWrite, .{ thid, per, db }) catch unreachable;
+            }
         }
         wg.wait();
         const dur_ms = @as(f64, @floatFromInt(timer.read())) / 1_000_000.0;
