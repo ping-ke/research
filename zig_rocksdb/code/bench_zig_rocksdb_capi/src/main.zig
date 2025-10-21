@@ -279,9 +279,9 @@ pub fn main() !void {
         for (0..threads) |thid| {
             wg.start();
             if (batchInit) {
-                _ = std.Thread.spawn(.{}, batchWrite, .{ thid, per, db }) catch unreachable;
+                _ = std.Thread.spawn(.{}, batchWrite, .{ thid, per, db, &wg }) catch unreachable;
             } else {
-                _ = std.Thread.spawn(.{}, seqWrite, .{ thid, per, db }) catch unreachable;
+                _ = std.Thread.spawn(.{}, seqWrite, .{ thid, per, db, &wg }) catch unreachable;
             }
         }
         wg.wait();
@@ -298,7 +298,7 @@ pub fn main() !void {
         const per = writeCount / threads;
         for (0..threads) |thid| {
             wg.start();
-            _ = std.Thread.spawn(.{}, randomWrite, .{ thid, per, 0, total, db }) catch unreachable;
+            _ = std.Thread.spawn(.{}, randomWrite, .{ thid, per, 0, total, db, &wg }) catch unreachable;
         }
         wg.wait();
         const dur_ms = @as(f64, @floatFromInt(timer.read())) / 1_000_000.0;
@@ -314,7 +314,7 @@ pub fn main() !void {
         const per = readCount / threads;
         for (0..threads) |thid| {
             wg.start();
-            _ = std.Thread.spawn(.{}, randomRead, .{ thid, per, 0, total, db }) catch unreachable;
+            _ = std.Thread.spawn(.{}, randomRead, .{ thid, per, 0, total, db, &wg }) catch unreachable;
         }
         wg.wait();
         const dur_ms = @as(f64, @floatFromInt(timer.read())) / 1_000_000.0;
