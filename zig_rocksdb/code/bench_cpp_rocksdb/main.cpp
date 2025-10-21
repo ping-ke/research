@@ -184,7 +184,7 @@ int main(int argc, char** argv) {
 
     int opt;
     // simple getopt parsing, keep param names similar to Go flags
-    while ((opt = getopt(argc, argv, "n:t:w:r:p:l:T:b:")) != -1) {
+    while ((opt = getopt(argc, argv, "n:b:T:t:w:r:p:l:")) != -1) {
         switch (opt) {
             case 'n': args.needInit = true; break;
             case 'b': args.batchInsert = true; break;
@@ -224,8 +224,8 @@ int main(int argc, char** argv) {
     }
 
     std::cout << "Threads: " << args.threads << std::endl;
-    std::cout << "Total data: " << args.total " while needInit=" << args.needInit << " and batchInsert=" << args.batchInsert << std::endl;
-    std::cout << "Ops: " << args.writeCount << "write ops and " << args.readCount << " read ops" << std::endl;
+    std::cout << "Total data: " << args.total << " while needInit=" << args.needInit << " and batchInsert=" << args.batchInsert << std::endl;
+    std::cout << "Ops: " << args.writeCount << " write ops and " << args.readCount << " read ops" << std::endl;
 
     // Init writes
     if (args.needInit && args.total > 0) {
