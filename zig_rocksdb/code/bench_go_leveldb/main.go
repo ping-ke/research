@@ -23,7 +23,7 @@ var (
 	tc       = flag.Int64("total", 4000000000, "Number of kvs to insert before test, default value is 4_000_000_000")
 	wc       = flag.Int64("write", 10000000, "Number of write count during the test")
 	rc       = flag.Int64("read", 10000000, "Number of read count during the test")
-	t        = flag.Int64("thread", 32, "Number of threads")
+	t        = flag.Int64("threads", 32, "Number of threads")
 	bi       = flag.Bool("batchInsert", true, "Enable batch insert or not")
 	dbPath   = flag.String("dbpath", "./data/bench_go_leveldb", "Data directory for the databases")
 	logLevel = flag.Int64("loglevel", 3, "Log level")
@@ -164,7 +164,7 @@ func main() {
 	writeCount := *wc
 	readCount := *rc
 	fmt.Printf("Threads: %d\n", threads)
-	fmt.Printf("Total data: %d while needInit=%b\n", total, *ni)
+	fmt.Printf("Total data: %d while needInit=%t\n", total, *ni)
 	fmt.Printf("Ops: %d write ops and %d read ops", writeCount, readCount)
 
 	rand.Read(randBytes)
