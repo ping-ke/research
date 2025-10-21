@@ -205,7 +205,7 @@ pub fn main() !void {
         \\-w, --write <u64>       Number of write during the test.
         \\-r, --read <u64>        Number of read count during the test.
         \\-v, --verbosity <u64>   Verbosity.
-        \\-t, --threads <u64>      Number of threads.
+        \\-t, --threads <u64>     Number of threads.
     );
     // Initialize our diagnostics, which can be used for reporting useful errors.
     // This is optional. You can also pass `.{}` to `clap.parse` if you don't
@@ -265,12 +265,12 @@ pub fn main() !void {
 
     std.debug.print("Threads: {}\n", .{threads});
     std.debug.print("Total data: {} while needInit={} and batchInsert={}\n", .{ total, needInit, batchInit });
-    std.debug.print("Ops: {} write ops and {} read ops", .{ writeCount, readCount });
+    std.debug.print("Ops: {} write ops and {} read ops\n", .{ writeCount, readCount });
 
-    var wg = std.Thread.WaitGroup{};
-    var timer = try std.time.Timer.start();
     // ---- Init Write ----
     if (needInit and total > 0) {
+        var timer = try std.time.Timer.start();
+        var wg: std.Thread.WaitGroup = .{};
         const per = total / threads;
         for (0..threads) |thid| {
             wg.start();
@@ -285,13 +285,12 @@ pub fn main() !void {
         std.debug.print("Init write: {} ops in {:.2} ms ({:.2} ops/s)\n", .{
             total, dur_ms, @as(f64, @floatFromInt(total)) * 1000.0 / dur_ms,
         });
-
-        wg.reset();
-        timer.reset();
     }
 
     // ---- Random Write ----
     if (writeCount > 0) {
+        var timer = try std.time.Timer.start();
+        var wg: std.Thread.WaitGroup = .{};
         const per = writeCount / threads;
         for (0..threads) |thid| {
             wg.start();
@@ -302,13 +301,12 @@ pub fn main() !void {
         std.debug.print("Random update: {} ops in {:.2} ms ({:.2} ops/s)\n", .{
             writeCount, dur_ms, @as(f64, @floatFromInt(writeCount)) * 1000.0 / dur_ms,
         });
-
-        wg.reset();
-        timer.reset();
     }
 
     // ---- Random Read ----
     if (readCount > 0) {
+        var timer = try std.time.Timer.start();
+        var wg: std.Thread.WaitGroup = .{};
         const per = readCount / threads;
         for (0..threads) |thid| {
             wg.start();

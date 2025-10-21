@@ -120,16 +120,15 @@ pub fn main() !void {
 
     std.debug.print("Threads: {}\n", .{threads});
     std.debug.print("Total data: {} while needInit={}\n", .{ total, needInit });
-    std.debug.print("Ops: {} write ops and {} read ops", .{ writeCount, readCount });
-
-    var timer = try std.time.Timer.start();
-    var wg: std.Thread.WaitGroup = .{};
+    std.debug.print("Ops: {} write ops and {} read ops\n", .{ writeCount, readCount });
 
     var g = std.Random.DefaultPrng.init(@intCast(std.time.nanoTimestamp()));
     g.random().bytes(randBytes[0..]);
 
     if (init != 0) {
         // Init Write phase
+        var wg: std.Thread.WaitGroup = .{};
+        var timer = try std.time.Timer.start();
         const per_i = total / threads;
         for (0..threads) |thid| {
             wg.start();
@@ -138,28 +137,26 @@ pub fn main() !void {
         wg.wait();
         const i_ms = @as(f64, @floatFromInt(timer.read())) / 1_000_000.0;
         std.debug.print("Init write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ total, i_ms, @as(f64, @floatFromInt(total)) * 1000.0 / i_ms });
-
-        wg.reset();
-        timer.reset();
     }
 
     if (writeCount != 0) {
         // Random Write phase
+        var timer = try std.time.Timer.start();
+        var wg: std.Thread.WaitGroup = .{};
         const per_w = writeCount / threads;
         for (0..threads) |thid| {
             wg.start();
-            _ = std.Thread.spawn(.{}, randomWriter, .{ thid, &db, per_w, 0, total, &wg }) catch unreachable;
+            _ = std.Thread.spawn(.{}, randomWrite, .{ thid, &db, per_w, 0, total, &wg }) catch unreachable;
         }
         wg.wait();
         const w_ms = @as(f64, @floatFromInt(timer.read())) / 1_000_000.0;
         std.debug.print("write: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ writeCount, w_ms, @as(f64, @floatFromInt(writeCount)) * 1000.0 / w_ms });
-
-        wg.reset();
-        timer.reset();
     }
 
     if (readCount != 0) {
         // Random Read phase
+        var timer = try std.time.Timer.start();
+        var wg: std.Thread.WaitGroup = .{};
         const per_r = readCount / threads;
         for (0..threads) |thid| {
             wg.start();
