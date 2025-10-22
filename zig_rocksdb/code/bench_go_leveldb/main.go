@@ -165,7 +165,7 @@ func main() {
 	readCount := *rc
 	fmt.Printf("Threads: %d\n", threads)
 	fmt.Printf("Total data: %d while needInit=%t\n", total, *ni)
-	fmt.Printf("Ops: %d write ops and %d read ops", writeCount, readCount)
+	fmt.Printf("Ops: %d write ops and %d read ops\n", writeCount, readCount)
 
 	rand.Read(randBytes)
 
