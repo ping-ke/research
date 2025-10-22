@@ -48,8 +48,10 @@ func randomWrite(tid, count, start, end int64, db *leveldb.DB, wg *sync.WaitGrou
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
 	}
-	tu := time.Since(st).Seconds()
-	fmt.Printf("thread %d random write done %.2fs, %.2f ops/s\n", tid, tu, float64(count)/tu)
+	if *logLevel >= 3 {
+		tu := time.Since(st).Seconds()
+		fmt.Printf("thread %d random write done %.2fs, %.2f ops/s\n", tid, tu, float64(count)/tu)
+	}
 }
 
 func randomRead(tid, count, start, end int64, db *leveldb.DB, wg *sync.WaitGroup) {
@@ -66,8 +68,10 @@ func randomRead(tid, count, start, end int64, db *leveldb.DB, wg *sync.WaitGroup
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
 	}
-	tu := time.Since(st).Seconds()
-	fmt.Printf("thread %d random read done %.2fs, %.2f ops/s\n", tid, tu, float64(count)/tu)
+	if *logLevel >= 3 {
+		tu := time.Since(st).Seconds()
+		fmt.Printf("thread %d random read done %.2fs, %.2f ops/s\n", tid, tu, float64(count)/tu)
+	}
 }
 
 func batchWrite(tid, count int64, db *leveldb.DB, wg *sync.WaitGroup) {
@@ -95,8 +99,10 @@ func batchWrite(tid, count int64, db *leveldb.DB, wg *sync.WaitGroup) {
 	if batch.Len() > 0 {
 		_ = db.Write(batch, nil)
 	}
-	tu := time.Since(st).Seconds()
-	fmt.Printf("thread %d batch write done %.2fs, %.2f ops/s\n", tid, tu, float64(count)/tu)
+	if *logLevel >= 3 {
+		tu := time.Since(st).Seconds()
+		fmt.Printf("thread %d batch write done %.2fs, %.2f ops/s\n", tid, tu, float64(count)/tu)
+	}
 }
 
 func seqWrite(tid, count int64, db *leveldb.DB, wg *sync.WaitGroup) {
@@ -113,8 +119,10 @@ func seqWrite(tid, count int64, db *leveldb.DB, wg *sync.WaitGroup) {
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
 	}
-	tu := time.Since(st).Seconds()
-	fmt.Printf("thread %d seq write done %.2fs, %.2f ops/s\n", tid, tu, float64(count)/tu)
+	if *logLevel >= 3 {
+		tu := time.Since(st).Seconds()
+		fmt.Printf("thread %d seq write done %.2fs, %.2f ops/s\n", tid, tu, float64(count)/tu)
+	}
 }
 
 func seqRead(tid, count int64, db *leveldb.DB, wg *sync.WaitGroup) {
@@ -129,9 +137,10 @@ func seqRead(tid, count int64, db *leveldb.DB, wg *sync.WaitGroup) {
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
 	}
-
-	tu := time.Since(st).Seconds()
-	fmt.Printf("thread %d seq read done %.2fs, %.2f ops/s\n", tid, tu, float64(count)/tu)
+	if *logLevel >= 3 {
+		tu := time.Since(st).Seconds()
+		fmt.Printf("thread %d seq read done %.2fs, %.2f ops/s\n", tid, tu, float64(count)/tu)
+	}
 }
 
 func main() {

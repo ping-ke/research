@@ -30,7 +30,9 @@ fn randomWrite(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg:
             std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
     }
-    std.debug.print("thread {} written done used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
+    if (verbosity >= 3) {
+        std.debug.print("thread {} written done used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
+    }
 }
 
 fn randomRead(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) !void {
@@ -49,7 +51,9 @@ fn randomRead(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg: 
             std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
     }
-    std.debug.print("thread {} read done used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
+    if (verbosity >= 3) {
+        std.debug.print("thread {} read done used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
+    }
 }
 
 fn seqWrite(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
@@ -67,7 +71,9 @@ fn seqWrite(thid: usize, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void
             std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
     }
-    std.debug.print("thread {} written done used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
+    if (verbosity >= 3) {
+        std.debug.print("thread {} written done used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
+    }
 }
 
 pub fn main() !void {

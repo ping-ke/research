@@ -69,9 +69,10 @@ fn batchWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t, wg: *std.Thread
             rocksdb.rocksdb_free(err.?);
         }
     }
-
-    const dur = @as(f64, @floatFromInt(timer.read())) / 1e9;
-    std.debug.print("thread {} batch write done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
+    if (verbosity >= 3) {
+        const dur = @as(f64, @floatFromInt(timer.read())) / 1e9;
+        std.debug.print("thread {} batch write done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
+    }
 }
 
 fn seqWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t, wg: *std.Thread.WaitGroup) !void {
@@ -109,9 +110,10 @@ fn seqWrite(thid: usize, count: usize, db: *rocksdb.rocksdb_t, wg: *std.Thread.W
             std.debug.print("thread {} used {} ms randwrite {}/{}\n", .{ thid, ms, i, count });
         }
     }
-
-    const dur = @as(f64, @floatFromInt(timer.read())) / 1e9;
-    std.debug.print("thread {} random write done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
+    if (verbosity >= 3) {
+        const dur = @as(f64, @floatFromInt(timer.read())) / 1e9;
+        std.debug.print("thread {} random write done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
+    }
 }
 
 fn randomWrite(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.rocksdb_t, wg: *std.Thread.WaitGroup) !void {
@@ -152,9 +154,10 @@ fn randomWrite(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb
             std.debug.print("thread {} used {} ms randwrite {}/{}\n", .{ thid, ms, i, count });
         }
     }
-
-    const dur = @as(f64, @floatFromInt(timer.read())) / 1e9;
-    std.debug.print("thread {} random write done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
+    if (verbosity >= 3) {
+        const dur = @as(f64, @floatFromInt(timer.read())) / 1e9;
+        std.debug.print("thread {} random write done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
+    }
 }
 
 fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.rocksdb_t, wg: *std.Thread.WaitGroup) !void {
@@ -167,31 +170,26 @@ fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.
 
     const ropt = rocksdb.rocksdb_readoptions_create();
     defer rocksdb.rocksdb_readoptions_destroy(ropt);
-    rocksdb.rocksdb_readoptions_set_verify_checksums(ropt, 0);
-    rocksdb.rocksdb_readoptions_set_fill_cache(ropt, 0);
+    rocksdb.rocksdb_readoptions_set_verify_checksums(ropt, 1);
+    rocksdb.rocksdb_readoptions_set_fill_cache(ropt, 1);
 
-    var err: [*c]u8 = null;
     var vallen: usize = 0;
 
     for (0..count) |i| {
         const rv = r.intRangeAtMost(usize, start, end);
         std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(rv), .little);
-        const val_ptr = rocksdb.rocksdb_get(db, ropt, key[0..keyLen].ptr, keyLen, &vallen, &err);
+        const val_ptr = rocksdb.rocksdb_get(db, ropt, key[0..keyLen].ptr, keyLen, &vallen, null);
         if (val_ptr != null) rocksdb.rocksdb_free(val_ptr);
-        if (err != null) {
-            std.debug.print("random read err: {s}\n", .{err.?});
-            rocksdb.rocksdb_free(err.?);
-            err = null;
-        }
 
         if (verbosity >= 3 and i % 1_000_000 == 0 and i > 0) {
             const ms = timer.read() / 1_000_000;
             std.debug.print("thread {} used {} ms read {}/{}\n", .{ thid, ms, i, count });
         }
     }
-
-    const dur = @as(f64, @floatFromInt(timer.read())) / 1e9;
-    std.debug.print("thread {} random read done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
+    if (verbosity >= 3) {
+        const dur = @as(f64, @floatFromInt(timer.read())) / 1e9;
+        std.debug.print("thread {} random read done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
+    }
 }
 
 pub fn main() !void {

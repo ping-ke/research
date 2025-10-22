@@ -81,8 +81,10 @@ void batchWrite(int tid, long long count, rocksdb::DB* db, const Args &args) {
         if (!stt.ok()) std::cerr << "batch write final error: " << stt.ToString() << std::endl;
     }
 
-    double tu = std::chrono::duration<double>(std::chrono::steady_clock::now() - st).count();
-    std::cout << "thread " << tid << " batch write done " << tu << "s, " << (count / tu) << " ops/s\n";
+    if (args.logLevel >= 3) {
+        double tu = std::chrono::duration<double>(std::chrono::steady_clock::now() - st).count();
+        std::cout << "thread " << tid << " batch write done " << tu << "s, " << (count / tu) << " ops/s\n";
+    }
 }
 
 void seqWrite(int tid, long long count, rocksdb::DB* db, const Args &args) {
@@ -109,8 +111,10 @@ void seqWrite(int tid, long long count, rocksdb::DB* db, const Args &args) {
         }
     }
 
-    double tu = std::chrono::duration<double>(std::chrono::steady_clock::now() - st).count();
-    std::cout << "thread " << tid << " seq write done " << tu << "s, " << (count / tu) << " ops/s\n";
+    if (args.logLevel >= 3) {
+        double tu = std::chrono::duration<double>(std::chrono::steady_clock::now() - st).count();
+        std::cout << "thread " << tid << " seq write done " << tu << "s, " << (count / tu) << " ops/s\n";
+    }
 }
 
 void randomWrite(int tid, long long count, long long start, long long end, rocksdb::DB* db, const Args &args) {
@@ -141,8 +145,10 @@ void randomWrite(int tid, long long count, long long start, long long end, rocks
         }
     }
 
-    double tu = std::chrono::duration<double>(std::chrono::steady_clock::now() - st).count();
-    std::cout << "thread " << tid << " random write done " << tu << "s, " << (count / tu) << " ops/s\n";
+    if (args.logLevel >= 3) {
+        double tu = std::chrono::duration<double>(std::chrono::steady_clock::now() - st).count();
+        std::cout << "thread " << tid << " random write done " << tu << "s, " << (count / tu) << " ops/s\n";
+    }
 }
 
 void randomRead(int tid, long long count, long long start, long long end, rocksdb::DB* db, const Args &args) {
@@ -175,8 +181,10 @@ void randomRead(int tid, long long count, long long start, long long end, rocksd
         }
     }
 
-    double tu = std::chrono::duration<double>(std::chrono::steady_clock::now() - st).count();
-    std::cout << "thread " << tid << " random read done " << tu << "s, " << (count / tu) << " ops/s\n";
+    if (args.logLevel >= 3) {
+        double tu = std::chrono::duration<double>(std::chrono::steady_clock::now() - st).count();
+        std::cout << "thread " << tid << " random read done " << tu << "s, " << (count / tu) << " ops/s\n";
+    }
 }
 
 int main(int argc, char** argv) {
