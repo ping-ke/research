@@ -46,7 +46,7 @@ fn randomRead(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg: 
     while (i < count) : (i += 1) {
         const rv = r.intRangeAtMost(usize, start, end);
         std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(rv), .little);
-        _ = try db.get(key[0..], .{});
+        _ = try db.get(key[0..], .{ .verify_checksums = true });
         if (verbosity >= 3 and i % 1_000_000 == 0 and i > 0) {
             std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
