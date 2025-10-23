@@ -219,10 +219,10 @@ int main(int argc, char** argv) {
     options.target_file_size_base = 32 << 20; // 32MB
     options.max_bytes_for_level_base = 256 << 20; // L1 total size 256MB
 
-    rocksdb::Env* env = rocksdb::Env::Default();
-    env->SetBackgroundThreads(8, rocksdb::Env::LOW);
-    env->SetBackgroundThreads(4, rocksdb::Env::HIGH);
-    options.env = env;
+    // rocksdb::Env* env = rocksdb::Env::Default();
+    // env->SetBackgroundThreads(8, rocksdb::Env::LOW);
+    // env->SetBackgroundThreads(4, rocksdb::Env::HIGH);
+    // options.env = env;
 
     // block cache
     rocksdb::BlockBasedTableOptions table_options;

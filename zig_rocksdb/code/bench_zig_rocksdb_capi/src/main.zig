@@ -252,11 +252,11 @@ pub fn main() !void {
     rocksdb.rocksdb_options_increase_parallelism(opts, @intCast(threads));
 
     // ---- 设置后台线程数（对应 Env::LOW/HIGH）----
-    const env = rocksdb.rocksdb_create_default_env();
-    rocksdb.rocksdb_env_set_background_threads(env, 8); // LOW pool
-    rocksdb.rocksdb_env_set_high_priority_background_threads(env, 4); // HIGH pool
-    rocksdb.rocksdb_options_set_env(opts, env);
-    defer rocksdb.rocksdb_env_destroy(env);
+    // const env = rocksdb.rocksdb_create_default_env();
+    // rocksdb.rocksdb_env_set_background_threads(env, 8); // LOW pool
+    // rocksdb.rocksdb_env_set_high_priority_background_threads(env, 4); // HIGH pool
+    // rocksdb.rocksdb_options_set_env(opts, env);
+    // defer rocksdb.rocksdb_env_destroy(env);
 
     const table_opts = rocksdb.rocksdb_block_based_options_create();
     defer rocksdb.rocksdb_block_based_options_destroy(table_opts);
