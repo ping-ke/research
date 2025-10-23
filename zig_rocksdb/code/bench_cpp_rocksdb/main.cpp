@@ -161,8 +161,8 @@ void randomRead(int tid, long long count, long long start, long long end, rocksd
     std::uniform_int_distribution<long long> dist(start, std::max(start, end - 1));
 
     rocksdb::ReadOptions ropt;
-    ropt.verify_checksums = false;
-    ropt.fill_cache = false;
+    ropt.verify_checksums = true;
+    ropt.fill_cache = true;
 
     for (long long i = 0; i < count; ++i) {
         uint64_t rv = static_cast<uint64_t>(dist(rng));

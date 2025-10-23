@@ -59,10 +59,14 @@ func randomRead(tid, count, start, end int64, db *leveldb.DB, wg *sync.WaitGroup
 	st := time.Now()
 	key := make([]byte, keyLen)
 	r := rand.New(rand.NewSource(time.Now().UnixNano() + tid))
+	opts := &opt.ReadOptions{
+		DontFillCache: false,
+	}
+
 	for i := int64(0); i < count; i++ {
 		rv := r.Int63n(end-start) + start
 		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
-		_, _ = db.Get(key, nil)
+		_, _ = db.Get(key, opts)
 		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
 			ms := time.Since(st).Milliseconds()
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
