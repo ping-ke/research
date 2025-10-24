@@ -1,4 +1,4 @@
-module bench_go_leveldb
+module bench_go_ethleveldb
 
 go 1.24.9
 

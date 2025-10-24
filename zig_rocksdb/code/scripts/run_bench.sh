@@ -1,6 +1,6 @@
 writeCount=10000000
 readCount=10000000
-sleepTime=300
+sleepTime=120
 loglevel=2
 threads=$1
 
@@ -12,6 +12,11 @@ echo "====================================== bench_go_leveldb ==================
 cd ../bench_go_leveldb/
 ./bench_go_leveldb --loglevel 2 --threads $threads --write $writeCount --read $readCount
 
+
+sleep $sleepTime
+echo "====================================== bench_go_ethleveldb ============================================"
+cd ../bench_go_ethleveldb/
+./bench_go_ethleveldb --loglevel 2 --threads $threads --write $writeCount --read $readCount
 
 sleep $sleepTime
 echo "====================================== bench_zig_rocksdb ============================================"
