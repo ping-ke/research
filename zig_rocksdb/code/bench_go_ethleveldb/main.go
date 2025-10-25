@@ -74,6 +74,37 @@ func randomRead(tid, count, start, end int64, db *leveldb.Database, wg *sync.Wai
 	}
 }
 
+func batchWrite(tid, count int64, db *leveldb.Database, wg *sync.WaitGroup) {
+	defer wg.Done()
+	st := time.Now()
+	key := make([]byte, keyLen)
+	batch := db.NewBatch()
+	for i := int64(0); i < count; i++ {
+		idx := tid*count + i
+		s := (idx % keyLen) * valLen
+		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(idx))
+		batch.Put(key, randBytes[s:s+valLen])
+
+		if i%1000 == 0 {
+			_ = batch.Write()
+			batch.Reset()
+		} else {
+			continue
+		}
+		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
+			ms := time.Since(st).Milliseconds()
+			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
+		}
+	}
+	if batch.ValueSize() > 0 {
+		_ = batch.Write()
+	}
+	if *logLevel >= 3 {
+		tu := time.Since(st).Seconds()
+		fmt.Printf("thread %d batch write done %.2fs, %.2f ops/s\n", tid, tu, float64(count)/tu)
+	}
+}
+
 func seqWrite(tid, count int64, db *leveldb.Database, wg *sync.WaitGroup) {
 	defer wg.Done()
 	st := time.Now()
@@ -115,7 +146,7 @@ func seqRead(tid, count int64, db *leveldb.Database, wg *sync.WaitGroup) {
 func main() {
 	flag.Parse()
 
-	db, err := leveldb.New(*dbPath, 2048, 8196, "./data/bench_go_leveldb", false)
+	db, err := leveldb.New(*dbPath, 2048, 8196, "bench_go_eth_leveldb", false)
 	if err != nil {
 		log.Crit("New dashboard fail", "err", err)
 	} else {
@@ -139,7 +170,11 @@ func main() {
 		for tid := int64(0); tid < threads; tid++ {
 			wg.Add(1)
 			id := tid
-			go seqWrite(id, per, db, &wg)
+			if *bi {
+				go batchWrite(id, per, db, &wg)
+			} else {
+				go seqWrite(id, per, db, &wg)
+			}
 		}
 		wg.Wait()
 		ms := float64(time.Since(start).Milliseconds())
