@@ -146,7 +146,7 @@ func seqRead(tid, count int64, db *leveldb.Database, wg *sync.WaitGroup) {
 func main() {
 	flag.Parse()
 
-	db, err := leveldb.New(*dbPath, 2048, 8196, "bench_go_eth_leveldb", false)
+	db, err := leveldb.New(*dbPath, 512, 100000, "bench_go_eth_leveldb", false)
 	if err != nil {
 		log.Crit("New dashboard fail", "err", err)
 	} else {

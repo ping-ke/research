@@ -153,7 +153,7 @@ func main() {
 		WriteBuffer:            64 << 20,  // 64MB
 		CompactionTableSize:    32 << 20,  // 32MB
 		CompactionTotalSize:    256 << 20, // 256MB
-		OpenFilesCacheCapacity: 512,
+		OpenFilesCacheCapacity: 100000,
 	}
 	db, err := leveldb.OpenFile(*dbPath, opts)
 

@@ -244,9 +244,9 @@ pub fn main() !void {
     rocksdb.rocksdb_options_set_create_if_missing(opts, 1);
     rocksdb.rocksdb_options_set_compression(opts, rocksdb.rocksdb_no_compression);
     rocksdb.rocksdb_options_set_compaction_style(opts, rocksdb.rocksdb_universal_compaction);
-    rocksdb.rocksdb_options_set_max_open_files(opts, 512);
-    rocksdb.rocksdb_options_set_write_buffer_size(opts, 64 << 20);
-    rocksdb.rocksdb_options_set_max_write_buffer_number(opts, 3);
+    rocksdb.rocksdb_options_set_max_open_files(opts, 100000);
+    rocksdb.rocksdb_options_set_write_buffer_size(opts, 128 << 20);
+    rocksdb.rocksdb_options_set_max_write_buffer_number(opts, 6);
     rocksdb.rocksdb_options_set_target_file_size_base(opts, 32 << 20);
     rocksdb.rocksdb_options_set_max_bytes_for_level_base(opts, 256 << 20);
     rocksdb.rocksdb_options_increase_parallelism(opts, @intCast(threads));
@@ -260,7 +260,7 @@ pub fn main() !void {
 
     const table_opts = rocksdb.rocksdb_block_based_options_create();
     defer rocksdb.rocksdb_block_based_options_destroy(table_opts);
-    const cache = rocksdb.rocksdb_cache_create_lru(128 << 20);
+    const cache = rocksdb.rocksdb_cache_create_lru(256 << 20);
     rocksdb.rocksdb_block_based_options_set_block_cache(table_opts, cache);
     rocksdb.rocksdb_options_set_block_based_table_factory(opts, table_opts);
 
