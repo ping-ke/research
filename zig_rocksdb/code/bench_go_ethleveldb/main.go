@@ -4,11 +4,13 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"math/rand"
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/ethdb/leveldb"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/ethdb/pebble"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -22,8 +24,9 @@ var (
 	tc       = flag.Int64("total", 4000000000, "Number of kvs to insert before test, default value is 4_000_000_000")
 	wc       = flag.Int64("write", 10000000, "Number of write count during the test")
 	rc       = flag.Int64("read", 10000000, "Number of read count during the test")
-	t        = flag.Int64("threads", 32, "Number of threads")
 	bi       = flag.Bool("batchInsert", true, "Enable batch insert or not")
+	t        = flag.Int64("threads", 32, "Number of threads")
+	dbtype   = flag.String("dbtype", "leveldb", "The db type: leveldb, pebble")
 	dbPath   = flag.String("dbpath", "./data/bench_go_leveldb", "Data directory for the databases")
 	logLevel = flag.Int64("loglevel", 3, "Log level")
 )
@@ -32,7 +35,7 @@ var (
 	randBytes = make([]byte, valLen*keyLen)
 )
 
-func randomWrite(tid, count, start, end int64, db *leveldb.Database, wg *sync.WaitGroup) {
+func randomWrite(tid, count, start, end int64, db ethdb.KeyValueWriter, wg *sync.WaitGroup) {
 	defer wg.Done()
 	st := time.Now()
 	key := make([]byte, keyLen)
@@ -53,7 +56,7 @@ func randomWrite(tid, count, start, end int64, db *leveldb.Database, wg *sync.Wa
 	}
 }
 
-func randomRead(tid, count, start, end int64, db *leveldb.Database, wg *sync.WaitGroup) {
+func randomRead(tid, count, start, end int64, db ethdb.KeyValueReader, wg *sync.WaitGroup) {
 	defer wg.Done()
 	st := time.Now()
 	key := make([]byte, keyLen)
@@ -74,7 +77,7 @@ func randomRead(tid, count, start, end int64, db *leveldb.Database, wg *sync.Wai
 	}
 }
 
-func batchWrite(tid, count int64, db *leveldb.Database, wg *sync.WaitGroup) {
+func batchWrite(tid, count int64, db ethdb.Batcher, wg *sync.WaitGroup) {
 	defer wg.Done()
 	st := time.Now()
 	key := make([]byte, keyLen)
@@ -105,7 +108,7 @@ func batchWrite(tid, count int64, db *leveldb.Database, wg *sync.WaitGroup) {
 	}
 }
 
-func seqWrite(tid, count int64, db *leveldb.Database, wg *sync.WaitGroup) {
+func seqWrite(tid, count int64, db ethdb.KeyValueWriter, wg *sync.WaitGroup) {
 	defer wg.Done()
 	st := time.Now()
 	key := make([]byte, keyLen)
@@ -125,7 +128,7 @@ func seqWrite(tid, count int64, db *leveldb.Database, wg *sync.WaitGroup) {
 	}
 }
 
-func seqRead(tid, count int64, db *leveldb.Database, wg *sync.WaitGroup) {
+func seqRead(tid, count int64, db ethdb.KeyValueReader, wg *sync.WaitGroup) {
 	defer wg.Done()
 	st := time.Now()
 	key := make([]byte, keyLen)
@@ -146,7 +149,17 @@ func seqRead(tid, count int64, db *leveldb.Database, wg *sync.WaitGroup) {
 func main() {
 	flag.Parse()
 
-	db, err := leveldb.New(*dbPath, 512, 100000, "bench_go_eth_leveldb", false)
+	var (
+		db  ethdb.KeyValueStore
+		err error
+	)
+
+	if *dbtype != "leveldb" {
+		db, err = leveldb.New(*dbPath, 512, 100000, "bench_go_eth_leveldb", false)
+	} else {
+		db, err = pebble.New("./data/bench_go_eth_pebble", 512, 100000, "bench_go_eth_pebble", false)
+	}
+
 	if err != nil {
 		log.Crit("New dashboard fail", "err", err)
 	} else {
