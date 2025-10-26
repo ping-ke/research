@@ -163,6 +163,7 @@ void randomRead(int tid, long long count, long long start, long long end, rocksd
     rocksdb::ReadOptions ropt;
     ropt.verify_checksums = true;
     ropt.fill_cache = false;
+    ropt.async_io = -1;
 
     for (long long i = 0; i < count; ++i) {
         uint64_t rv = static_cast<uint64_t>(dist(rng));
@@ -218,6 +219,7 @@ int main(int argc, char** argv) {
     options.max_write_buffer_number = 6;
     options.target_file_size_base = 32 << 20; // 32MB
     options.max_bytes_for_level_base = 256 << 20; // L1 total size 256MB
+    options.max_file_opening_threads = -1;
 
     // rocksdb::Env* env = rocksdb::Env::Default();
     // env->SetBackgroundThreads(8, rocksdb::Env::LOW);

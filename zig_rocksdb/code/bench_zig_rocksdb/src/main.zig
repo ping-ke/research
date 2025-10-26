@@ -119,9 +119,7 @@ pub fn main() !void {
     var db = try DB.open(
         allocator,
         "./data/bench_zig_rocksdb",
-        .{
-            .create_if_missing = true,
-        },
+        .{ .create_if_missing = true, .max_open_files = 100000, .max_file_opening_threads = -1 },
     );
 
     std.debug.print("Threads: {}\n", .{threads});

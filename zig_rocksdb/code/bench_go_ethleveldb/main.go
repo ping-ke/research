@@ -4,12 +4,12 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"github.com/ethereum/go-ethereum/ethdb/pebble"
 	"github.com/ethereum/go-ethereum/log"
 )

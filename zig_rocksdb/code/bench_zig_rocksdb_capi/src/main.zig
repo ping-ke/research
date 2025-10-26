@@ -172,6 +172,7 @@ fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.
     defer rocksdb.rocksdb_readoptions_destroy(ropt);
     rocksdb.rocksdb_readoptions_set_verify_checksums(ropt, 1);
     rocksdb.rocksdb_readoptions_set_fill_cache(ropt, 0);
+    rocksdb.rocksdb_readoptions_set_async_io(ropt, true);
 
     var vallen: usize = 0;
 
@@ -245,6 +246,7 @@ pub fn main() !void {
     rocksdb.rocksdb_options_set_compression(opts, rocksdb.rocksdb_no_compression);
     rocksdb.rocksdb_options_set_compaction_style(opts, rocksdb.rocksdb_universal_compaction);
     rocksdb.rocksdb_options_set_max_open_files(opts, 100000);
+    rocksdb.rocksdb_options_set_max_file_opening_threads(opts, -1);
     rocksdb.rocksdb_options_set_write_buffer_size(opts, 128 << 20);
     rocksdb.rocksdb_options_set_max_write_buffer_number(opts, 6);
     rocksdb.rocksdb_options_set_target_file_size_base(opts, 32 << 20);
