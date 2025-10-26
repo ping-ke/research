@@ -172,7 +172,7 @@ fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.
     defer rocksdb.rocksdb_readoptions_destroy(ropt);
     rocksdb.rocksdb_readoptions_set_verify_checksums(ropt, 1);
     rocksdb.rocksdb_readoptions_set_fill_cache(ropt, 0);
-    rocksdb.rocksdb_readoptions_set_async_io(ropt, true);
+    rocksdb.rocksdb_readoptions_set_async_io(ropt, 1);
 
     var vallen: usize = 0;
 
