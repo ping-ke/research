@@ -286,13 +286,13 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (verbosity >= 3) std::cout << "Keys generation done.\n";
+        if (args.logLevel >= 3) std::cout << "Keys generation done.\n";
 
         // ---------- Step 2: 多线程读取 ----------
         auto start = std::chrono::high_resolution_clock::now();
         std::vector<std::thread> workers;
         for (int tid = 0; tid < args.threads; ++tid) {
-            workers.emplace_back(randomRead, tid, per, std::cref(thread_keys[thid]), db, std::cref(args));
+            workers.emplace_back(randomRead, tid, per, std::cref(thread_keys[tid]), db, std::cref(args));
         }
         for (auto &t : workers) t.join();
         double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
