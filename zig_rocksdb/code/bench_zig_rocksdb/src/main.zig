@@ -187,7 +187,7 @@ pub fn main() !void {
         for (0..threads) |thid| {
             wg.start();
             const buf = thread_keys[thid]; // []u8
-            _ = std.Thread.spawn(.{}, randomRead, .{ thid, buf, per, db, &wg }) catch unreachable;
+            _ = std.Thread.spawn(.{}, randomRead, .{ thid, buf, db, per, &wg }) catch unreachable;
         }
 
         wg.wait();
