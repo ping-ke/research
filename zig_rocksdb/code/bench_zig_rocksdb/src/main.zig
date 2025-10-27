@@ -35,18 +35,13 @@ fn randomWrite(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg:
     }
 }
 
-fn randomRead(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg: *std.Thread.WaitGroup) !void {
+fn randomRead(thid: usize, buf: []u8, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
-    var g = std.Random.DefaultPrng.init(@intCast(std.time.nanoTimestamp()));
-    const r = g.random();
-    var key: [valLen]u8 = undefined;
-    @memset(key[0..], 0);
     while (i < count) : (i += 1) {
-        const rv = r.intRangeAtMost(usize, start, end);
-        std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(rv), .little);
-        _ = try db.get(key[0..], .{ .verify_checksums = true });
+        const key = buf[i * keyLen .. (i + 1) * keyLen];
+        _ = try db.get(key, .{ .verify_checksums = true });
         if (verbosity >= 3 and i % 1_000_000 == 0 and i > 0) {
             std.debug.print("thread {} used time {}ms, hps {}\n", .{ thid, timer.read() / 1_000_000, i * 1_000_000_000 / timer.read() });
         }
@@ -158,14 +153,43 @@ pub fn main() !void {
     }
 
     if (readCount != 0) {
-        // Random Read phase
+        const per = readCount / threads;
+
+        // ---------- Step 1: 预生成所有随机 keys ----------
+        var rng = std.Random.DefaultPrng.init(@intCast(std.time.nanoTimestamp()));
+        const r = rng.random();
+
+        // 分配一个二维数组: [threads][per * keyLen]
+        var thread_keys = try allocator.alloc([]u8, threads);
+        defer {
+            for (thread_keys) |buf| allocator.free(buf);
+            allocator.free(thread_keys);
+        }
+
+        for (0..threads) |thid| {
+            const buf = try allocator.alloc(u8, per * keyLen);
+            @memset(buf, 0);
+
+            for (0..per) |i| {
+                const rv = r.intRangeAtMost(usize, 0, total);
+                const dest = buf[i * keyLen + keyLen - 8 .. (i + 1) * keyLen];
+                std.mem.copyForwards(u8, dest, std.mem.asBytes(&@byteSwap(rv)));
+            }
+
+            thread_keys[thid] = buf;
+        }
+        if (verbosity >= 3) {
+            std.debug.print("Keys generation done.\n", .{});
+        }
+
         var timer = try std.time.Timer.start();
         var wg: std.Thread.WaitGroup = .{};
-        const per_r = readCount / threads;
         for (0..threads) |thid| {
             wg.start();
-            _ = std.Thread.spawn(.{}, randomRead, .{ thid, &db, per_r, 0, total, &wg }) catch unreachable;
+            const buf = thread_keys[thid]; // []u8
+            _ = std.Thread.spawn(.{}, randomRead, .{ thid, buf, per, db, &wg }) catch unreachable;
         }
+
         wg.wait();
         const r_ms = @as(f64, @floatFromInt(timer.read())) / 1_000_000.0;
         std.debug.print("Read: {d} ops in {d:.2} ms ({d:.2} ops/s)\n", .{ readCount, r_ms, @as(f64, @floatFromInt(readCount)) * 1000.0 / r_ms });
