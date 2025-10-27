@@ -27,7 +27,7 @@ var (
 	bi       = flag.Bool("batchInsert", true, "Enable batch insert or not")
 	t        = flag.Int64("threads", 32, "Number of threads")
 	dbtype   = flag.String("dbtype", "leveldb", "The db type: leveldb, pebble")
-	dbPath   = flag.String("dbpath", "./data/bench_go_leveldb", "Data directory for the databases")
+	dbPath   = flag.String("dbpath", "./data/bench_go_eth_leveldb", "Data directory for the databases")
 	logLevel = flag.Int64("loglevel", 3, "Log level")
 )
 
@@ -56,24 +56,22 @@ func randomWrite(tid, count, start, end int64, db ethdb.KeyValueWriter, wg *sync
 	}
 }
 
-func randomRead(tid, count, start, end int64, db ethdb.KeyValueReader, wg *sync.WaitGroup) {
+func randomRead(tid int64, keys [][]byte, db ethdb.KeyValueReader, wg *sync.WaitGroup) {
 	defer wg.Done()
 	st := time.Now()
-	key := make([]byte, keyLen)
-	r := rand.New(rand.NewSource(time.Now().UnixNano() + tid))
+	i := int64(0)
 
-	for i := int64(0); i < count; i++ {
-		rv := r.Int63n(end-start) + start
-		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
+	for _, key := range keys {
 		_, _ = db.Get(key)
 		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
 			ms := time.Since(st).Milliseconds()
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
+		i++
 	}
 	if *logLevel >= 3 {
 		tu := time.Since(st).Seconds()
-		fmt.Printf("thread %d random read done %.2fs, %.2f ops/s\n", tid, tu, float64(count)/tu)
+		fmt.Printf("thread %d random read done %.2fs, %.2f ops/s\n", tid, tu, float64(len(keys))/tu)
 	}
 }
 
@@ -208,12 +206,27 @@ func main() {
 	}
 
 	if readCount > 0 {
-		start := time.Now()
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		thread_keys := make([][][]byte, threads)
 		per := readCount / threads
+
+		for i := int64(0); i < threads; i++ {
+			keys := make([][]byte, per)
+			for j := int64(0); j < per; j++ {
+				rv := r.Int63n(total)
+				key := make([]byte, keyLen)
+				binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
+				keys[j] = key
+			}
+			thread_keys[i] = keys
+		}
+
+		start := time.Now()
 		for tid := int64(0); tid < threads; tid++ {
 			wg.Add(1)
 			id := tid
-			go randomRead(id, per, 0, total, db, &wg)
+			keys := thread_keys[id]
+			go randomRead(id, keys, db, &wg)
 		}
 		wg.Wait()
 		ms := float64(time.Since(start).Milliseconds())

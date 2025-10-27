@@ -151,14 +151,9 @@ void randomWrite(int tid, long long count, long long start, long long end, rocks
     }
 }
 
-void randomRead(int tid, long long count, long long start, long long end, rocksdb::DB* db, const Args &args) {
+void randomRead(int tid, const std::vector<uint8_t>& keys, long long count, rocksdb::DB* db, const Args &args) {
     auto st = std::chrono::steady_clock::now();
-    uint8_t key[keyLen];
-    memset(key, 0, keyLen);
     std::string value;
-    std::mt19937_64 rng(static_cast<unsigned long>(
-        std::chrono::steady_clock::now().time_since_epoch().count() + tid));
-    std::uniform_int_distribution<long long> dist(start, std::max(start, end - 1));
 
     rocksdb::ReadOptions ropt;
     ropt.verify_checksums = true;
@@ -166,11 +161,9 @@ void randomRead(int tid, long long count, long long start, long long end, rocksd
     ropt.async_io = true;
 
     for (long long i = 0; i < count; ++i) {
-        uint64_t rv = static_cast<uint64_t>(dist(rng));
-        putKey(key, rv);
         value.clear();
-        rocksdb::Status stt = db->Get(ropt, rocksdb::Slice(reinterpret_cast<char*>(key), keyLen), &value);
-        // ignore not found
+        const char* key = reinterpret_cast<const char*>(&keys[i * keyLen]);
+        rocksdb::Status stt = db->Get(ropt, rocksdb::Slice(key, keyLen), &value);
         if (!stt.ok() && !stt.IsNotFound()) {
             std::cerr << "random read err: " << stt.ToString() << std::endl;
         }
@@ -274,11 +267,32 @@ int main(int argc, char** argv) {
 
     // Random reads
     if (args.readCount > 0) {
-        auto start = std::chrono::steady_clock::now();
         long long per = args.readCount / args.threads;
+
+        // ---------- Step 1: 预生成所有随机 keys ----------
+        std::mt19937_64 rng(std::random_device{}());
+        std::uniform_int_distribution<size_t> dist(0, args.total);
+
+        std::vector<std::vector<uint8_t>> thread_keys(args.threads);
+        for (size_t thid = 0; thid < args.threads; ++thid) {
+            thread_keys[thid].resize(per * keyLen);
+            uint8_t* buf = thread_keys[thid].data();
+            memset(buf, 0, per * keyLen);
+
+            for (size_t i = 0; i < per; ++i) {
+                size_t rv = dist(rng);
+                uint64_t swapped = __builtin_bswap64(rv);
+                memcpy(buf + i * keyLen + keyLen - 8, &swapped, 8);
+            }
+        }
+
+        if (verbosity >= 3) std::cout << "Keys generation done.\n";
+
+        // ---------- Step 2: 多线程读取 ----------
+        auto start = std::chrono::high_resolution_clock::now();
         std::vector<std::thread> workers;
         for (int tid = 0; tid < args.threads; ++tid) {
-            workers.emplace_back(randomRead, tid, per, 0, args.total, db, std::cref(args));
+            workers.emplace_back(randomRead, tid, per, std::cref(thread_keys[thid]), db, std::cref(args));
         }
         for (auto &t : workers) t.join();
         double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
