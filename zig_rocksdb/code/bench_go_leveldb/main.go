@@ -149,8 +149,8 @@ func main() {
 
 	opts := &opt.Options{
 		Compression:            opt.NoCompression,
-		BlockCacheCapacity:     128 << 20, // 128MB
-		WriteBuffer:            64 << 20,  // 64MB
+		BlockCacheCapacity:     256 << 20, // 256MB
+		WriteBuffer:            128 << 20, // 128MB
 		CompactionTableSize:    32 << 20,  // 32MB
 		CompactionTotalSize:    256 << 20, // 256MB
 		OpenFilesCacheCapacity: 100000,
@@ -174,7 +174,7 @@ func main() {
 	writeCount := *wc
 	readCount := *rc
 	fmt.Printf("Threads: %d\n", threads)
-	fmt.Printf("Total data: %d while needInit=%t\n", total, *ni)
+	fmt.Printf("Total data: %d while needInit=%t batchInsert=%t\n", total, *ni, *bi)
 	fmt.Printf("Ops: %d write ops and %d read ops\n", writeCount, readCount)
 
 	rand.Read(randBytes)

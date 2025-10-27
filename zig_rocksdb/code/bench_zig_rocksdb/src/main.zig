@@ -87,7 +87,7 @@ pub fn main() !void {
     const params = comptime clap.parseParamsComptime(
         \\-h, --help              Display this help and exit.
         \\-i, --init <u64>        Need to insert kvs before test, default 0 means already have data in the db.
-        \\-T, --total <u64>       Number of kvs to insert before test, default value is 1_000_000_000.
+        \\-T, --total <u64>       Number of kvs to insert before test, default value is 4_000_000_000.
         \\-w, --write <u64>       Number of write during the test.
         \\-r, --read <u64>        Number of read count during the test.
         \\-v, --verbosity <u64>   Verbosity.

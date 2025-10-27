@@ -154,7 +154,7 @@ func main() {
 		err error
 	)
 
-	if *dbtype != "leveldb" {
+	if *dbtype == "leveldb" {
 		db, err = leveldb.New(*dbPath, 512, 100000, "bench_go_eth_leveldb", false)
 	} else {
 		db, err = pebble.New("./data/bench_go_eth_pebble", 512, 100000, "bench_go_eth_pebble", false)
