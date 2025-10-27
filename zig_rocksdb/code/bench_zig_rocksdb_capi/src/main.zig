@@ -331,7 +331,8 @@ pub fn main() !void {
 
             for (0..per) |i| {
                 const rv = r.intRangeAtMost(usize, 0, total);
-                std.mem.writeInt(u64, buf[i * keyLen + keyLen - 8 .. (i + 1) * keyLen], @byteSwap(rv), .little);
+                const dest = buf[i * keyLen + keyLen - 8 .. (i + 1) * keyLen];
+                std.mem.copyForwards(u8, dest, std.mem.asBytes(&@byteSwap(rv)));
             }
 
             thread_keys[thid] = buf;
