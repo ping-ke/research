@@ -35,7 +35,7 @@ fn randomWrite(thid: usize, db: *DB, count: usize, start: usize, end: usize, wg:
     }
 }
 
-fn randomRead(thid: usize, buf: []u8, db: *DB, count: usize, wg: *std.Thread.WaitGroup) !void {
+fn randomRead(thid: usize, buf: []u8, count: usize, db: *DB, wg: *std.Thread.WaitGroup) !void {
     defer wg.finish();
     var i: usize = 0;
     var timer = try std.time.Timer.start();
@@ -187,7 +187,7 @@ pub fn main() !void {
         for (0..threads) |thid| {
             wg.start();
             const buf = thread_keys[thid]; // []u8
-            _ = std.Thread.spawn(.{}, randomRead, .{ thid, buf, db, per, &wg }) catch unreachable;
+            _ = std.Thread.spawn(.{}, randomRead, .{ thid, buf, per, &db, &wg }) catch unreachable;
         }
 
         wg.wait();
