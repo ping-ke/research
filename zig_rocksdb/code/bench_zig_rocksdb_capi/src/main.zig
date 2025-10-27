@@ -160,13 +160,9 @@ fn randomWrite(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb
     }
 }
 
-fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.rocksdb_t, wg: *std.Thread.WaitGroup) !void {
+fn randomRead(thid: usize, buf: []u8, per: usize, db: *rocksdb.rocksdb_t, wg: *std.Thread.WaitGroup) !void {
     defer wg.finish();
     var timer = try std.time.Timer.start();
-    var key: [keyLen]u8 = undefined;
-    @memset(key[0..], 0);
-    var g = std.Random.DefaultPrng.init(@intCast(std.time.nanoTimestamp()));
-    const r = g.random();
 
     const ropt = rocksdb.rocksdb_readoptions_create();
     defer rocksdb.rocksdb_readoptions_destroy(ropt);
@@ -176,20 +172,20 @@ fn randomRead(thid: usize, count: usize, start: usize, end: usize, db: *rocksdb.
 
     var vallen: usize = 0;
 
-    for (0..count) |i| {
-        const rv = r.intRangeAtMost(usize, start, end);
-        std.mem.writeInt(u64, key[keyLen - 8 .. keyLen], @byteSwap(rv), .little);
-        const val_ptr = rocksdb.rocksdb_get(db, ropt, key[0..keyLen].ptr, keyLen, &vallen, null);
+    for (0..per) |i| {
+        const key = buf[i * keyLen .. (i + 1) * keyLen];
+        const val_ptr = rocksdb.rocksdb_get(db, ropt, key.ptr, key.len, &vallen, null);
         if (val_ptr != null) rocksdb.rocksdb_free(val_ptr);
 
         if (verbosity >= 3 and i % 1_000_000 == 0 and i > 0) {
             const ms = timer.read() / 1_000_000;
-            std.debug.print("thread {} used {} ms read {}/{}\n", .{ thid, ms, i, count });
+            std.debug.print("thread {} used {} ms read {}/{}\n", .{ thid, ms, i, per });
         }
     }
+
     if (verbosity >= 3) {
         const dur = @as(f64, @floatFromInt(timer.read())) / 1e9;
-        std.debug.print("thread {} random read done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(count)) / dur });
+        std.debug.print("thread {} done {:.2}s, {:.2} ops/s\n", .{ thid, dur, @as(f64, @floatFromInt(per)) / dur });
     }
 }
 
@@ -316,13 +312,42 @@ pub fn main() !void {
 
     // ---- Random Read ----
     if (readCount > 0) {
+        const per = readCount / threads;
+
+        // ---------- Step 1: 预生成所有随机 keys ----------
+        var rng = std.Random.DefaultPrng.init(@intCast(std.time.nanoTimestamp()));
+        const r = rng.random();
+
+        // 分配一个二维数组: [threads][per * keyLen]
+        var thread_keys = try allocator.alloc([]u8, threads);
+        defer {
+            for (thread_keys) |buf| allocator.free(buf);
+            allocator.free(thread_keys);
+        }
+
+        for (0..threads) |thid| {
+            const buf = try allocator.alloc(u8, per * keyLen);
+            @memset(buf, 0);
+
+            for (0..per) |i| {
+                const rv = r.intRangeAtMost(usize, 0, total);
+                std.mem.writeInt(u64, buf[i * keyLen + keyLen - 8 .. (i + 1) * keyLen], @byteSwap(rv), .little);
+            }
+
+            thread_keys[thid] = buf;
+        }
+        if (verbosity >= 3) {
+            std.debug.print("Keys generation done.\n", .{});
+        }
+
         var timer = try std.time.Timer.start();
         var wg: std.Thread.WaitGroup = .{};
-        const per = readCount / threads;
         for (0..threads) |thid| {
             wg.start();
-            _ = std.Thread.spawn(.{}, randomRead, .{ thid, per, 0, total, db, &wg }) catch unreachable;
+            const buf = thread_keys[thid]; // []u8
+            _ = std.Thread.spawn(.{}, randomRead, .{ thid, buf, per, db, &wg }) catch unreachable;
         }
+
         wg.wait();
         const dur_ms = @as(f64, @floatFromInt(timer.read())) / 1_000_000.0;
         std.debug.print("Random read: {} ops in {:.2} ms ({:.2} ops/s)\n", .{
