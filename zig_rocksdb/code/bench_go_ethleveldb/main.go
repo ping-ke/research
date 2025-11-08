@@ -34,10 +34,10 @@ var (
 
 var (
 	randBytes = make([]byte, valLen*keyLen)
-	sha       = crypto.NewKeccakState()
 )
 
-func hash(in []byte) []byte {
+func hash(sha crypto.KeccakState, in []byte) []byte {
+	sha.Reset()
 	sha.Write(in)
 	h := make([]byte, 32)
 	sha.Read(h)
@@ -49,11 +49,12 @@ func randomWrite(tid, count, start, end int64, db ethdb.KeyValueWriter, wg *sync
 	st := time.Now()
 	key := make([]byte, keyLen)
 	r := rand.New(rand.NewSource(time.Now().UnixNano() + tid))
+	sha := crypto.NewKeccakState()
 	for i := int64(0); i < count; i++ {
 		rv := r.Int63n(end-start) + start
 		s := (rv % keyLen) * valLen
 		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
-		k := hash(key)
+		k := hash(sha, key)
 		_ = db.Put(k, randBytes[s:s+valLen])
 		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
 			ms := time.Since(st).Milliseconds()
@@ -88,13 +89,14 @@ func randomRead(tid int64, keys [][]byte, db ethdb.KeyValueReader, wg *sync.Wait
 func batchWrite(tid, count int64, db ethdb.Batcher, wg *sync.WaitGroup) {
 	defer wg.Done()
 	st := time.Now()
+	sha := crypto.NewKeccakState()
 	key := make([]byte, keyLen)
 	batch := db.NewBatch()
 	for i := int64(0); i < count; i++ {
 		idx := tid*count + i
 		s := (idx % keyLen) * valLen
 		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(idx))
-		k := hash(key)
+		k := hash(sha, key)
 		batch.Put(k, randBytes[s:s+valLen])
 
 		if i%1000 == 0 {
@@ -223,11 +225,12 @@ func main() {
 
 		for i := int64(0); i < threads; i++ {
 			keys := make([][]byte, per)
+			sha := crypto.NewKeccakState()
 			for j := int64(0); j < per; j++ {
 				rv := r.Int63n(total)
 				key := make([]byte, keyLen)
 				binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
-				k := hash(key)
+				k := hash(sha, key)
 				keys[j] = k
 			}
 			thread_keys[i] = keys
