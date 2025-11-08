@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"github.com/ethereum/go-ethereum/ethdb/pebble"
@@ -33,7 +34,15 @@ var (
 
 var (
 	randBytes = make([]byte, valLen*keyLen)
+	sha       = crypto.NewKeccakState()
 )
+
+func hash(in []byte) []byte {
+	sha.Write(in)
+	h := make([]byte, 32)
+	sha.Read(h)
+	return h
+}
 
 func randomWrite(tid, count, start, end int64, db ethdb.KeyValueWriter, wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -44,7 +53,8 @@ func randomWrite(tid, count, start, end int64, db ethdb.KeyValueWriter, wg *sync
 		rv := r.Int63n(end-start) + start
 		s := (rv % keyLen) * valLen
 		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
-		_ = db.Put(key, randBytes[s:s+valLen])
+		k := hash(key)
+		_ = db.Put(k, randBytes[s:s+valLen])
 		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
 			ms := time.Since(st).Milliseconds()
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
@@ -84,7 +94,8 @@ func batchWrite(tid, count int64, db ethdb.Batcher, wg *sync.WaitGroup) {
 		idx := tid*count + i
 		s := (idx % keyLen) * valLen
 		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(idx))
-		batch.Put(key, randBytes[s:s+valLen])
+		k := hash(key)
+		batch.Put(k, randBytes[s:s+valLen])
 
 		if i%1000 == 0 {
 			_ = batch.Write()
@@ -216,7 +227,8 @@ func main() {
 				rv := r.Int63n(total)
 				key := make([]byte, keyLen)
 				binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
-				keys[j] = key
+				k := hash(key)
+				keys[j] = k
 			}
 			thread_keys[i] = keys
 		}
@@ -231,5 +243,7 @@ func main() {
 		wg.Wait()
 		ms := float64(time.Since(start).Milliseconds())
 		fmt.Printf("Random read: %d ops in %.2f ms (%.2f ops/s)\n", readCount, ms, float64(readCount)*1000/ms)
+		s, _ := db.Stat()
+		fmt.Printf("Random Read stat \n%s", s)
 	}
 }
