@@ -73,8 +73,9 @@ func randomRead(tid int64, keys [][]byte, db ethdb.KeyValueReader, wg *sync.Wait
 	i := int64(0)
 
 	for _, key := range keys {
-		_, _ = db.Get(key)
+		v, e := db.Get(key)
 		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
+			fmt.Printf("value for key %v is %v with error %v\n", string(key), v, e)
 			ms := time.Since(st).Milliseconds()
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}

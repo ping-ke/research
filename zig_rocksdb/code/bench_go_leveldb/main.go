@@ -63,8 +63,9 @@ func randomRead(tid, count, start, end int64, db *leveldb.DB, wg *sync.WaitGroup
 	for i := int64(0); i < count; i++ {
 		rv := r.Int63n(end-start) + start
 		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
-		_, _ = db.Get(key, nil)
+		v, e := db.Get(key, nil)
 		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
+			fmt.Printf("value for key %v is %v with error %v\n", string(key), v, e)
 			ms := time.Since(st).Milliseconds()
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
