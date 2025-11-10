@@ -256,8 +256,7 @@ pub fn main() !void {
     // rocksdb.rocksdb_options_set_env(opts, env);
     // defer rocksdb.rocksdb_env_destroy(env);
 
-    const stats = rocksdb.rocksdb_create_statistics();
-    rocksdb.rocksdb_options_set_statistics(opts, stats);
+    rocksdb.rocksdb_options_enable_statistics(opts);
     rocksdb.rocksdb_options_set_stats_dump_period_sec(opts, 0);
 
     const table_opts = rocksdb.rocksdb_block_based_options_create();
@@ -359,8 +358,10 @@ pub fn main() !void {
             readCount, dur_ms, @as(f64, @floatFromInt(readCount)) * 1000.0 / dur_ms,
         });
 
-        const statsStr = rocksdb.rocksdb_statistics_to_string(stats);
-        std.debug.print("RocksDB Stats:\n{s}\n", .{statsStr});
-        rocksdb.rocksdb_free(statsStr);
+        const stat_str = rocksdb.rocksdb_options_statistics_get_string(opts);
+        if (stat_str != null) {
+            std.debug.print("RocksDB Stats:\n{s}\n", .{stat_str});
+            rocksdb.rocksdb_free(stat_str);
+        }
     }
 }
