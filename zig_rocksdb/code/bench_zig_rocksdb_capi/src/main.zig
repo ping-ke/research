@@ -240,7 +240,7 @@ pub fn main() !void {
     defer rocksdb.rocksdb_options_destroy(opts);
     rocksdb.rocksdb_options_set_create_if_missing(opts, 1);
     rocksdb.rocksdb_options_set_compression(opts, rocksdb.rocksdb_no_compression);
-    rocksdb.rocksdb_options_set_compaction_style(opts, rocksdb.rocksdb_universal_compaction);
+    rocksdb.rocksdb_options_set_compaction_style(opts, rocksdb.rocksdb_level_compaction);
     rocksdb.rocksdb_options_set_max_open_files(opts, 100000);
     rocksdb.rocksdb_options_set_max_file_opening_threads(opts, -1);
     rocksdb.rocksdb_options_set_write_buffer_size(opts, 128 << 20);

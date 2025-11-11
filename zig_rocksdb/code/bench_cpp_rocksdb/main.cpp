@@ -213,7 +213,7 @@ int main(int argc, char** argv) {
     options.create_if_missing = true;
     options.IncreaseParallelism(); // use background threads
     options.compression = rocksdb::kNoCompression;
-    options.compaction_style = rocksdb::kCompactionStyleUniversal; // optional, depends on use-case
+    options.compaction_style = rocksdb::kCompactionStyleLevel; // optional, depends on use-case
     options.max_open_files = 100000;
     options.write_buffer_size = 128 << 20; // 64MB
     options.max_write_buffer_number = 6;
