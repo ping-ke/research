@@ -2,6 +2,7 @@
 #include <rocksdb/db.h>
 #include <rocksdb/options.h>
 #include <rocksdb/write_batch.h>
+#include <rocksdb/statistics.h>
 #include <rocksdb/cache.h>
 #include <rocksdb/table.h>
 
@@ -219,6 +220,7 @@ int main(int argc, char** argv) {
     options.target_file_size_base = 32 << 20; // 32MB
     options.max_bytes_for_level_base = 256 << 20; // L1 total size 256MB
     options.max_file_opening_threads = -1;
+    options.statistics = rocksdb::CreateDBStatistics();
     options.stats_dump_period_sec = 0;
 
     // rocksdb::Env* env = rocksdb::Env::Default();
