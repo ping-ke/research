@@ -288,24 +288,22 @@ int main(int argc, char** argv) {
         std::cout << "Random read: " << args.readCount << " ops in " << ms << " ms (" << (args.readCount * 1000.0 / ms) << " ops/s)\n";
     }
 
-    // ---- 输出 RocksDB 内部统计 ----
     auto st = options.statistics;
+    std::cout << "BlockCacheHit: "
+          << st->getTickerCount(rocksdb::BLOCK_CACHE_HIT) << "\n";
+    std::cout << "BlockCacheMiss: "
+          << st->getTickerCount(rocksdb::BLOCK_CACHE_MISS) << "\n";
+    std::cout << "BytesRead (MB): "
+          << st->getTickerCount(rocksdb::BYTES_READ) / (1024.0 * 1024.0) << " MB\n";
 
-    std::cout << "\n====== RocksDB Internal Stats ======\n";
-    std::cout << "Block Cache Hit Count: "
-              << st->getTickerCount(TICKER_BLOCK_CACHE_HIT) << "\n";
-    std::cout << "Block Cache Miss Count: "
-              << st->getTickerCount(TICKER_BLOCK_CACHE_MISS) << "\n";
-    std::cout << "Bytes Read from Disk: "
-              << st->getTickerCount(TICKER_BYTES_READ) / (1024.0 * 1024.0) << " MB\n";
-    std::cout << "Block Read Count: "
-              << st->getTickerCount(TICKER_BLOCK_READ_COUNT) << "\n";
-    std::cout << "Block Read Bytes: "
-              << st->getTickerCount(TICKER_BLOCK_READ_BYTES) / (1024.0 * 1024.0) << " MB\n";
-    std::cout << "Get Misses: "
-              << st->getTickerCount(TICKER_GET_MISS) << "  Gets: "
-              << st->getTickerCount(TICKER_GET_HIT) + st->getTickerCount(TICKER_GET_MISS) << "\n";
-
+    // GET 命中率可使用更细粒度指标
+    uint64_t get_hits = st->getTickerCount(rocksdb::GET_HIT_L0)
+                  + st->getTickerCount(rocksdb::GET_HIT_L1)
+                  + st->getTickerCount(rocksdb::GET_HIT_L2_AND_UP);
+    std::cout << "GetHits: " << get_hits << "\n";
+    std::cout << "  L0 GetHits: " << st->getTickerCount(rocksdb::GET_HIT_L0) << "\n";
+    std::cout << "  L1 GetHits: " << st->getTickerCount(rocksdb::GET_HIT_L1) << "\n";
+    std::cout << "  L2 ~ GetHits: " << st->getTickerCount(rocksdb::GET_HIT_L2_AND_UP) << "\n";
     std::cout << "-------------------------------------\n";
 
     // 也可以用 GetProperty 直接查看完整文本版统计：
