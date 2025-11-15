@@ -37,10 +37,15 @@ void fillRandBytes() {
 }
 
 inline void putKey(uint8_t *key, uint64_t v) {
-    // put big-endian uint64 at the tail
+    uint8_t buf[8];
+
+    // Convert uint64_t to big-endian byte array
     for (int i = 0; i < 8; ++i) {
-        key[keyLen - 1 - i] = static_cast<uint8_t>((v >> (i * 8)) & 0xFF);
+        buf[7 - i] = static_cast<uint8_t>((v >> (i * 8)) & 0xFF);
     }
+
+    // SHA256 hash output to key[32]
+    SHA256(buf, sizeof(buf), key);
 }
 
 void batchWrite(int tid, long long count, rocksdb::DB* db, const Args &args) {
