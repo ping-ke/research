@@ -30,14 +30,14 @@ const (
 )
 
 var (
-	ni       = flag.Bool("needInit", false, "Need to insert kvs before test, default false")
-	tc       = flag.Int64("total", 4000000000, "Number of kvs to insert before test, default value is 4_000_000_000")
-	wc       = flag.Int64("write", 10000000, "Number of write count during the test")
-	rc       = flag.Int64("read", 10000000, "Number of read count during the test")
-	bi       = flag.Bool("batchInsert", true, "Enable batch insert or not")
-	t        = flag.Int64("threads", 32, "Number of threads")
-	dbPath   = flag.String("dbpath", "./data/bench_go_pebble", "Data directory for the databases")
-	logLevel = flag.Int64("loglevel", 3, "Log level")
+	ni       = flag.Bool("ni", false, "Need to insert kvs before test, default false")
+	tc       = flag.Int64("T", 4000000000, "Number of kvs to insert before test, default value is 4_000_000_000")
+	wc       = flag.Int64("w", 10000000, "Number of write count during the test")
+	rc       = flag.Int64("r", 10000000, "Number of read count during the test")
+	bi       = flag.Bool("bi", true, "Enable batch insert or not")
+	t        = flag.Int64("t", 32, "Number of threads")
+	dbPath   = flag.String("p", "./data/bench_go_pebble", "Data directory for the databases")
+	logLevel = flag.Int64("l", 3, "Log level")
 )
 
 var (
