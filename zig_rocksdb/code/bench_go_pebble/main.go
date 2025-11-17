@@ -325,6 +325,7 @@ func main() {
 			thread_keys[i] = keys
 		}
 
+		m1 := db.Metrics()
 		start := time.Now()
 		for tid := int64(0); tid < threads; tid++ {
 			wg.Add(1)
@@ -335,6 +336,23 @@ func main() {
 		wg.Wait()
 		ms := float64(time.Since(start).Milliseconds())
 		fmt.Printf("Random read: %d ops in %.2f ms (%.2f ops/s)\n", readCount, ms, float64(readCount)*1000/ms)
+		m2 := db.Metrics()
+
+		amp := m2.ReadAmp()
+		blockMiss := m2.BlockCache.Misses - m1.BlockCache.Misses
+		tableMiss := m2.TableCache.Misses - m1.TableCache.Misses
+
+		fmt.Printf("ReadAmp 次数: %d\n", amp)
+		fmt.Printf("BlockCache miss 次数: %d\n", blockMiss)
+		fmt.Printf("TableCache miss 次数: %d\n", tableMiss)
+		fmt.Printf("平均每次 Get 触发的 I/O 次数 ≈ %.4f\n",
+			float64(blockMiss+tableMiss)/float64(readCount))
+
+		for i := 0; i < 7; i++ {
+			fmt.Printf("Level %d Bytes read: %.2f MB\n", i, float64(m2.Levels[0].BytesRead-m1.Levels[0].BytesRead)/1024/1024)
+			fmt.Printf("Level %d Bytes read: %.2f MB\n", i, float64(m2.Levels[0].Size)/1024/1024)
+		}
+		fmt.Printf("DB State %s", m2.String())
 		s := db.Metrics().String()
 		fmt.Printf("Random Read stat \n%s", s)
 	}
