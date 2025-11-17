@@ -6,6 +6,7 @@
 #include <rocksdb/cache.h>
 #include <rocksdb/table.h>
 
+#include <openssl/sha.h>
 #include <iostream>
 #include <vector>
 #include <thread>
