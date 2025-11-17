@@ -292,6 +292,7 @@ func main() {
 		wg.Wait()
 		ms := float64(time.Since(start).Milliseconds())
 		fmt.Printf("Init write: %d ops in %.2f ms (%.2f ops/s)\n", total, ms, float64(total)*1000/ms)
+		fmt.Printf("DB State \n%s", db.Metrics().String())
 	}
 
 	if writeCount > 0 {
@@ -305,6 +306,7 @@ func main() {
 		wg.Wait()
 		ms := float64(time.Since(start).Milliseconds())
 		fmt.Printf("Random update: %d ops in %.2f ms (%.2f ops/s)\n", writeCount, ms, float64(writeCount)*1000/ms)
+		fmt.Printf("DB State \n%s", db.Metrics().String())
 	}
 
 	if readCount > 0 {
@@ -349,11 +351,9 @@ func main() {
 			float64(blockMiss+tableMiss)/float64(readCount))
 
 		for i := 0; i < 7; i++ {
-			fmt.Printf("Level %d Bytes read: %.2f MB\n", i, float64(m2.Levels[0].BytesRead-m1.Levels[0].BytesRead)/1024/1024)
-			fmt.Printf("Level %d Bytes read: %.2f MB\n", i, float64(m2.Levels[0].Size)/1024/1024)
+			fmt.Printf("Level %d Bytes read: %.2f MB\n", i, float64(m2.Levels[i].BytesRead-m1.Levels[i].BytesRead)/1024/1024)
+			fmt.Printf("Level %d Bytes read: %.2f MB\n", i, float64(m2.Levels[i].Size)/1024/1024)
 		}
-		fmt.Printf("DB State %s", m2.String())
-		s := db.Metrics().String()
-		fmt.Printf("Random Read stat \n%s", s)
+		fmt.Printf("DB State \n%s", m2.String())
 	}
 }
