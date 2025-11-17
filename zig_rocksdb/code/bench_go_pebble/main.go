@@ -117,6 +117,7 @@ func batchWrite(tid, count int64, db *pebble.DB, wg *sync.WaitGroup) {
 		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
 			ms := time.Since(st).Milliseconds()
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
+			fmt.Printf("sampel key %s\n", common.Bytes2Hex(k))
 		}
 	}
 	_ = batch.Commit(pebble.NoSync)
@@ -352,7 +353,7 @@ func main() {
 
 		for i := 0; i < 7; i++ {
 			fmt.Printf("Level %d Bytes read: %.2f MB\n", i, float64(m2.Levels[i].BytesRead-m1.Levels[i].BytesRead)/1024/1024)
-			fmt.Printf("Level %d Bytes read: %.2f MB\n", i, float64(m2.Levels[i].Size)/1024/1024)
+			fmt.Printf("Level %d Size: %.2f MB\n", i, float64(m2.Levels[i].Size)/1024/1024)
 		}
 		fmt.Printf("DB State \n%s", m2.String())
 	}
