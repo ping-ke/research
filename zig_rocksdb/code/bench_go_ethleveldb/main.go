@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"github.com/ethereum/go-ethereum/ethdb/pebble"
@@ -27,7 +28,7 @@ var (
 	bi       = flag.Bool("batchInsert", true, "Enable batch insert or not")
 	t        = flag.Int64("threads", 32, "Number of threads")
 	dbtype   = flag.String("dbtype", "leveldb", "The db type: leveldb, pebble")
-	dbPath   = flag.String("dbpath", "./data/bench_go_leveldb", "Data directory for the databases")
+	dbPath   = flag.String("dbpath", "./data/bench_go_eth_leveldb", "Data directory for the databases")
 	logLevel = flag.Int64("loglevel", 3, "Log level")
 )
 
@@ -35,16 +36,26 @@ var (
 	randBytes = make([]byte, valLen*keyLen)
 )
 
+func hash(sha crypto.KeccakState, in []byte) []byte {
+	sha.Reset()
+	sha.Write(in)
+	h := make([]byte, 32)
+	sha.Read(h)
+	return h
+}
+
 func randomWrite(tid, count, start, end int64, db ethdb.KeyValueWriter, wg *sync.WaitGroup) {
 	defer wg.Done()
 	st := time.Now()
 	key := make([]byte, keyLen)
 	r := rand.New(rand.NewSource(time.Now().UnixNano() + tid))
+	sha := crypto.NewKeccakState()
 	for i := int64(0); i < count; i++ {
 		rv := r.Int63n(end-start) + start
 		s := (rv % keyLen) * valLen
 		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
-		_ = db.Put(key, randBytes[s:s+valLen])
+		k := hash(sha, key)
+		_ = db.Put(k, randBytes[s:s+valLen])
 		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
 			ms := time.Since(st).Milliseconds()
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
@@ -56,37 +67,38 @@ func randomWrite(tid, count, start, end int64, db ethdb.KeyValueWriter, wg *sync
 	}
 }
 
-func randomRead(tid, count, start, end int64, db ethdb.KeyValueReader, wg *sync.WaitGroup) {
+func randomRead(tid int64, keys [][]byte, db ethdb.KeyValueReader, wg *sync.WaitGroup) {
 	defer wg.Done()
 	st := time.Now()
-	key := make([]byte, keyLen)
-	r := rand.New(rand.NewSource(time.Now().UnixNano() + tid))
+	i := int64(0)
 
-	for i := int64(0); i < count; i++ {
-		rv := r.Int63n(end-start) + start
-		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
-		_, _ = db.Get(key)
-		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
+	for _, key := range keys {
+		v, e := db.Get(key)
+		if *logLevel >= 3 && i%100000 == 0 && i > 0 {
+			fmt.Printf("value for key %v is %v with error %v\n", key, v, e)
 			ms := time.Since(st).Milliseconds()
 			fmt.Printf("thread %d used time %d ms, hps %d\n", tid, ms, i*1000/ms)
 		}
+		i++
 	}
 	if *logLevel >= 3 {
 		tu := time.Since(st).Seconds()
-		fmt.Printf("thread %d random read done %.2fs, %.2f ops/s\n", tid, tu, float64(count)/tu)
+		fmt.Printf("thread %d random read done %.2fs, %.2f ops/s\n", tid, tu, float64(len(keys))/tu)
 	}
 }
 
 func batchWrite(tid, count int64, db ethdb.Batcher, wg *sync.WaitGroup) {
 	defer wg.Done()
 	st := time.Now()
+	sha := crypto.NewKeccakState()
 	key := make([]byte, keyLen)
 	batch := db.NewBatch()
 	for i := int64(0); i < count; i++ {
 		idx := tid*count + i
 		s := (idx % keyLen) * valLen
 		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(idx))
-		batch.Put(key, randBytes[s:s+valLen])
+		k := hash(sha, key)
+		batch.Put(k, randBytes[s:s+valLen])
 
 		if i%1000 == 0 {
 			_ = batch.Write()
@@ -208,15 +220,34 @@ func main() {
 	}
 
 	if readCount > 0 {
-		start := time.Now()
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		thread_keys := make([][][]byte, threads)
 		per := readCount / threads
+
+		for i := int64(0); i < threads; i++ {
+			keys := make([][]byte, per)
+			sha := crypto.NewKeccakState()
+			for j := int64(0); j < per; j++ {
+				rv := r.Int63n(total)
+				key := make([]byte, keyLen)
+				binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
+				k := hash(sha, key)
+				keys[j] = k
+			}
+			thread_keys[i] = keys
+		}
+
+		start := time.Now()
 		for tid := int64(0); tid < threads; tid++ {
 			wg.Add(1)
 			id := tid
-			go randomRead(id, per, 0, total, db, &wg)
+			keys := thread_keys[id]
+			go randomRead(id, keys, db, &wg)
 		}
 		wg.Wait()
 		ms := float64(time.Since(start).Milliseconds())
 		fmt.Printf("Random read: %d ops in %.2f ms (%.2f ops/s)\n", readCount, ms, float64(readCount)*1000/ms)
+		s, _ := db.Stat()
+		fmt.Printf("Random Read stat \n%s", s)
 	}
 }

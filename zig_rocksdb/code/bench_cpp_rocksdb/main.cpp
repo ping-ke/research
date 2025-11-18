@@ -2,9 +2,11 @@
 #include <rocksdb/db.h>
 #include <rocksdb/options.h>
 #include <rocksdb/write_batch.h>
+#include <rocksdb/statistics.h>
 #include <rocksdb/cache.h>
 #include <rocksdb/table.h>
 
+#include <openssl/sha.h>
 #include <iostream>
 #include <vector>
 #include <thread>
@@ -36,10 +38,15 @@ void fillRandBytes() {
 }
 
 inline void putKey(uint8_t *key, uint64_t v) {
-    // put big-endian uint64 at the tail
+    uint8_t buf[8];
+
+    // Convert uint64_t to big-endian byte array
     for (int i = 0; i < 8; ++i) {
-        key[keyLen - 1 - i] = static_cast<uint8_t>((v >> (i * 8)) & 0xFF);
+        buf[7 - i] = static_cast<uint8_t>((v >> (i * 8)) & 0xFF);
     }
+
+    // SHA256 hash output to key[32]
+    SHA256(buf, sizeof(buf), key);
 }
 
 void batchWrite(int tid, long long count, rocksdb::DB* db, const Args &args) {
@@ -170,7 +177,6 @@ void randomRead(int tid, long long count, long long start, long long end, rocksd
         putKey(key, rv);
         value.clear();
         rocksdb::Status stt = db->Get(ropt, rocksdb::Slice(reinterpret_cast<char*>(key), keyLen), &value);
-        // ignore not found
         if (!stt.ok() && !stt.IsNotFound()) {
             std::cerr << "random read err: " << stt.ToString() << std::endl;
         }
@@ -213,13 +219,15 @@ int main(int argc, char** argv) {
     options.create_if_missing = true;
     options.IncreaseParallelism(); // use background threads
     options.compression = rocksdb::kNoCompression;
-    options.compaction_style = rocksdb::kCompactionStyleUniversal; // optional, depends on use-case
+    options.compaction_style = rocksdb::kCompactionStyleLevel; // optional, depends on use-case
     options.max_open_files = 100000;
     options.write_buffer_size = 128 << 20; // 64MB
     options.max_write_buffer_number = 6;
     options.target_file_size_base = 32 << 20; // 32MB
     options.max_bytes_for_level_base = 256 << 20; // L1 total size 256MB
     options.max_file_opening_threads = -1;
+    options.statistics = rocksdb::CreateDBStatistics();
+    options.stats_dump_period_sec = 0;
 
     // rocksdb::Env* env = rocksdb::Env::Default();
     // env->SetBackgroundThreads(8, rocksdb::Env::LOW);
@@ -257,6 +265,9 @@ int main(int argc, char** argv) {
         for (auto &t : workers) t.join();
         double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
         std::cout << "Init write: " << args.total << " ops in " << ms << " ms (" << (args.total * 1000.0 / ms) << " ops/s)\n";
+        std::cout << "Running manual compaction..." << std::endl;
+        db->CompactRange(rocksdb::CompactRangeOptions(), nullptr, nullptr);
+        std::cout << "Compaction completed." << std::endl;
     }
 
     // Random writes
@@ -276,6 +287,7 @@ int main(int argc, char** argv) {
     if (args.readCount > 0) {
         auto start = std::chrono::steady_clock::now();
         long long per = args.readCount / args.threads;
+
         std::vector<std::thread> workers;
         for (int tid = 0; tid < args.threads; ++tid) {
             workers.emplace_back(randomRead, tid, per, 0, args.total, db, std::cref(args));
@@ -283,6 +295,30 @@ int main(int argc, char** argv) {
         for (auto &t : workers) t.join();
         double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
         std::cout << "Random read: " << args.readCount << " ops in " << ms << " ms (" << (args.readCount * 1000.0 / ms) << " ops/s)\n";
+    }
+
+    auto st = options.statistics;
+    std::cout << "BlockCacheHit: "
+          << st->getTickerCount(rocksdb::BLOCK_CACHE_HIT) << "\n";
+    std::cout << "BlockCacheMiss: "
+          << st->getTickerCount(rocksdb::BLOCK_CACHE_MISS) << "\n";
+    std::cout << "BytesRead (MB): "
+          << st->getTickerCount(rocksdb::BYTES_READ) / (1024.0 * 1024.0) << " MB\n";
+
+    // GET 命中率可使用更细粒度指标
+    uint64_t get_hits = st->getTickerCount(rocksdb::GET_HIT_L0)
+                  + st->getTickerCount(rocksdb::GET_HIT_L1)
+                  + st->getTickerCount(rocksdb::GET_HIT_L2_AND_UP);
+    std::cout << "GetHits: " << get_hits << "\n";
+    std::cout << "  L0 GetHits: " << st->getTickerCount(rocksdb::GET_HIT_L0) << "\n";
+    std::cout << "  L1 GetHits: " << st->getTickerCount(rocksdb::GET_HIT_L1) << "\n";
+    std::cout << "  L2 ~ GetHits: " << st->getTickerCount(rocksdb::GET_HIT_L2_AND_UP) << "\n";
+    std::cout << "-------------------------------------\n";
+
+    // 也可以用 GetProperty 直接查看完整文本版统计：
+    std::string stats;
+    if (db->GetProperty("rocksdb.stats", &stats)) {
+        std::cout << stats << "\n";
     }
 
     delete db;
