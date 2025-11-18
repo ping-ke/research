@@ -265,6 +265,9 @@ int main(int argc, char** argv) {
         for (auto &t : workers) t.join();
         double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
         std::cout << "Init write: " << args.total << " ops in " << ms << " ms (" << (args.total * 1000.0 / ms) << " ops/s)\n";
+        std::cout << "Running manual compaction..." << std::endl;
+        db->CompactRange(rocksdb::CompactRangeOptions(), nullptr, nullptr);
+        std::cout << "Compaction completed." << std::endl;
     }
 
     // Random writes
