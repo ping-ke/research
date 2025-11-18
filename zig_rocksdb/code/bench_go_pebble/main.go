@@ -36,6 +36,7 @@ var (
 	wc       = flag.Int64("w", 10000000, "Number of write count during the test")
 	rc       = flag.Int64("r", 10000000, "Number of read count during the test")
 	bi       = flag.Bool("bi", true, "Enable batch insert or not")
+	fc       = flag.Bool("fc", false, "Force compact or not")
 	t        = flag.Int64("t", 32, "Number of threads")
 	dbPath   = flag.String("p", "./data/bench_go_pebble", "Data directory for the databases")
 	logLevel = flag.Int64("l", 3, "Log level")
@@ -295,6 +296,12 @@ func main() {
 		ms := float64(time.Since(start).Milliseconds())
 		fmt.Printf("Init write: %d ops in %.2f ms (%.2f ops/s)\n", total, ms, float64(total)*1000/ms)
 		fmt.Printf("DB State \n%s", db.Metrics().String())
+	}
+
+	if *fc {
+		if err = db.Compact([]byte{}, []byte{0xff, 0xff, 0xff, 0xff}); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	if writeCount > 0 {
