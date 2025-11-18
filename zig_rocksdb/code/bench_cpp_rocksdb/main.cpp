@@ -26,6 +26,7 @@ struct Args {
     long long readCount = 10000000LL;
     int threads = 32;
     bool batchInsert = false;
+    bool forceCompact = false;
     std::string dbPath = "./data/bench_cpp_rocksdb";
     int logLevel = 3;
 };
@@ -199,10 +200,11 @@ int main(int argc, char** argv) {
 
     int opt;
     // simple getopt parsing, keep param names similar to Go flags
-    while ((opt = getopt(argc, argv, "n:b:T:t:w:r:p:l:")) != -1) {
+    while ((opt = getopt(argc, argv, "n:b:c:T:t:w:r:p:l:")) != -1) {
         switch (opt) {
             case 'n': args.needInit = true; break;
             case 'b': args.batchInsert = true; break;
+            case 'c': args.forceCompact = true; break;
             case 'T': args.total = std::stoll(optarg); break;
             case 't': args.threads = std::stoll(optarg); break;
             case 'w': args.writeCount = std::stoll(optarg); break;
@@ -247,7 +249,7 @@ int main(int argc, char** argv) {
     }
 
     std::cout << "Threads: " << args.threads << std::endl;
-    std::cout << "Total data: " << args.total << " while needInit=" << args.needInit << " and batchInsert=" << args.batchInsert << std::endl;
+    std::cout << "Total data: " << args.total << " while needInit=" << args.needInit << " and batchInsert=" << args.batchInsert << " and forceCompact=" << args.forceCompact << std::endl;
     std::cout << "Ops: " << args.writeCount << " write ops and " << args.readCount << " read ops" << std::endl;
 
     // Init writes
@@ -265,10 +267,14 @@ int main(int argc, char** argv) {
         for (auto &t : workers) t.join();
         double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
         std::cout << "Init write: " << args.total << " ops in " << ms << " ms (" << (args.total * 1000.0 / ms) << " ops/s)\n";
+    }
+
+    if (args.forceCompact) {
         std::cout << "Running manual compaction..." << std::endl;
         db->CompactRange(rocksdb::CompactRangeOptions(), nullptr, nullptr);
         std::cout << "Compaction completed." << std::endl;
     }
+    
 
     // Random writes
     if (args.writeCount > 0) {
