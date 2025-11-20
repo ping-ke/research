@@ -299,8 +299,8 @@ func main() {
 	}
 
 	if *fc {
-		if err = db.Compact([]byte{}, []byte{0xff, 0xff, 0xff, 0xff}); err != nil {
-			log.Fatal(err)
+		if err = db.Compact([]byte{}, []byte{0xff, 0xff, 0xff, 0xff}, true); err != nil {
+			panic(err)
 		}
 	}
 
