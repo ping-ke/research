@@ -32,13 +32,13 @@ const (
 
 var (
 	ni       = flag.Bool("ni", false, "Need to insert kvs before test, default false")
-	tc       = flag.Int64("T", 4000000000, "Number of kvs to insert before test, default value is 4_000_000_000")
+	tc       = flag.Int64("T", 2000000000, "Number of kvs to insert before test, default value is 4_000_000_000")
 	wc       = flag.Int64("w", 10000000, "Number of write count during the test")
 	rc       = flag.Int64("r", 10000000, "Number of read count during the test")
 	bi       = flag.Bool("bi", true, "Enable batch insert or not")
 	fc       = flag.Bool("fc", false, "Force compact or not")
 	t        = flag.Int64("t", 32, "Number of threads")
-	dbPath   = flag.String("p", "./data/bench_go_pebble", "Data directory for the databases")
+	dbPath   = flag.String("p", "./data/bench_pebble", "Data directory for the databases")
 	logLevel = flag.Int64("l", 3, "Log level")
 )
 
@@ -77,13 +77,18 @@ func randomWrite(tid, count, start, end int64, db *pebble.DB, wg *sync.WaitGroup
 	}
 }
 
-func randomRead(tid int64, keys [][]byte, db *pebble.DB, wg *sync.WaitGroup) {
+func randomRead(tid, per, total int64, db *pebble.DB, wg *sync.WaitGroup) {
 	defer wg.Done()
 	st := time.Now()
-	i := int64(0)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	sha := crypto.NewKeccakState()
 
-	for _, key := range keys {
-		v, _, e := db.Get(key)
+	for i := int64(0); i < per; i++ {
+		rv := r.Int63n(total)
+		key := make([]byte, keyLen)
+		binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
+		k := hash(sha, key)
+		v, _, e := db.Get(k)
 		if *logLevel >= 3 && i%1000000 == 0 && i > 0 {
 			fmt.Printf("value for key %v is %v with error %v\n", common.Bytes2Hex(key), v, e)
 			ms := time.Since(st).Milliseconds()
@@ -93,7 +98,7 @@ func randomRead(tid int64, keys [][]byte, db *pebble.DB, wg *sync.WaitGroup) {
 	}
 	if *logLevel >= 3 {
 		tu := time.Since(st).Seconds()
-		fmt.Printf("thread %d random read done %.2fs, %.2f ops/s\n", tid, tu, float64(len(keys))/tu)
+		fmt.Printf("thread %d random read done %.2fs, %.2f ops/s\n", tid, tu, float64(per)/tu)
 	}
 }
 
@@ -319,30 +324,14 @@ func main() {
 	}
 
 	if readCount > 0 {
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
-		thread_keys := make([][][]byte, threads)
 		per := readCount / threads
 
-		for i := int64(0); i < threads; i++ {
-			keys := make([][]byte, per)
-			sha := crypto.NewKeccakState()
-			for j := int64(0); j < per; j++ {
-				rv := r.Int63n(total)
-				key := make([]byte, keyLen)
-				binary.BigEndian.PutUint64(key[keyLen-8:keyLen], uint64(rv))
-				k := hash(sha, key)
-				keys[j] = k
-			}
-			thread_keys[i] = keys
-		}
-
-		m1 := db.Metrics()
 		start := time.Now()
+		m1 := db.Metrics()
 		for tid := int64(0); tid < threads; tid++ {
 			wg.Add(1)
 			id := tid
-			keys := thread_keys[id]
-			go randomRead(id, keys, db, &wg)
+			go randomRead(id, per, total, db, &wg)
 		}
 		wg.Wait()
 		ms := float64(time.Since(start).Milliseconds())
@@ -353,10 +342,10 @@ func main() {
 		blockMiss := m2.BlockCache.Misses - m1.BlockCache.Misses
 		tableMiss := m2.TableCache.Misses - m1.TableCache.Misses
 
-		fmt.Printf("ReadAmp 次数: %d\n", amp)
-		fmt.Printf("BlockCache miss 次数: %d\n", blockMiss)
-		fmt.Printf("TableCache miss 次数: %d\n", tableMiss)
-		fmt.Printf("平均每次 Get 触发的 I/O 次数 ≈ %.4f\n",
+		fmt.Printf("ReadAmp Count: %d\n", amp)
+		fmt.Printf("BlockCache miss Count: %d\n", blockMiss)
+		fmt.Printf("TableCache miss Count: %d\n", tableMiss)
+		fmt.Printf("Avg I/O per Get ≈ %.4f\n",
 			float64(blockMiss+tableMiss)/float64(readCount))
 
 		for i := 0; i < 7; i++ {
