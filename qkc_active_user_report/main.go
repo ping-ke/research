@@ -430,6 +430,6 @@ func getMonthStrs(blockTime time.Time) (string, string, string) {
 	)
 
 	return firstOfMonth.Format("2006-01"),
-		firstOfMonth.AddDate(0, -1, 0).Format("2006-01"),
-		firstOfMonth.AddDate(0, -2, 0).Format("2006-01")
+		firstOfMonth.AddDate(0, 1, 0).Format("2006-01"),
+		firstOfMonth.AddDate(0, 2, 0).Format("2006-01")
 }
