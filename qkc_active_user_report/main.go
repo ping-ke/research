@@ -136,6 +136,7 @@ func processBlock(
 		false,
 	)
 	if err != nil || resp.Error != nil || resp.Result == nil {
+		time.Sleep(500 * time.Millisecond)
 		return
 	}
 
@@ -247,6 +248,7 @@ func getLatestBlock(client jsonrpc.RPCClient, shardID int) uint64 {
 	)
 	if err != nil || resp.Error != nil || resp.Result == nil {
 		log.Printf("getLatestBlock shard=%d rpc error: %v respErr=%v", shardID, err, resp.Error)
+		time.Sleep(500 * time.Millisecond)
 		return 0
 	}
 
