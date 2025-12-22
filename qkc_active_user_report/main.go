@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	clientStr    = flag.String("client", "http://jrpc.mainnet.quarkchain.io:38391", "client url")
-	dbPath       = flag.String("p", "./data/bench_pebble", "Data directory for the databases")
+	clientStr = flag.String("client", "http://jrpc.mainnet.quarkchain.io:38391", "client url")
+	dbPath    = flag.String("path", "./data", "Data directory for the databases")
 )
 
 type Stats struct {
@@ -140,9 +140,12 @@ func processBlock(
 	}
 
 	block := resp.Result.(map[string]interface{})
-	tsHex := block["timestamp"].(string)
-	ts, _ := hexutil.DecodeUint64(tsHex)
+	tsHex, ok := block["timestamp"].(string)
+	if !ok {
+		return
+	}
 
+	ts, _ := hexutil.DecodeUint64(tsHex)
 	blockTime := time.Unix(int64(ts), 0)
 
 	date := blockTime.Format("2006-01-02")
@@ -150,19 +153,25 @@ func processBlock(
 	monthPlusOne := blockTime.AddDate(0, 1, 0).Format("2006-01")
 	monthPlusTwo := blockTime.AddDate(0, 2, 0).Format("2006-01")
 
-	txs := block["transactions"].([]interface{})
+	txs, ok := block["transactions"].([]interface{})
+	if !ok {
+		return
+	}
 	if len(txs) == 0 {
 		return
 	}
 
+	lock.Lock()
 	if _, ok := stats.DailyAU[date]; !ok {
 		stats.DailyAU[date] = make(map[common.Address]struct{})
 		stats.DailyTx[date] = 0
 	}
 	if _, ok := stats.MonthlyAU[month]; !ok {
 		stats.MonthlyAU[month] = make(map[common.Address]struct{})
-		stats.QuarterlyAU[month] = make(map[common.Address]struct{})
 		stats.MonthlyTx[month] = 0
+	}
+	if _, ok := stats.QuarterlyAU[month]; !ok {
+		stats.QuarterlyAU[month] = make(map[common.Address]struct{})
 		stats.QuarterlyTx[month] = 0
 	}
 	if _, ok := stats.QuarterlyAU[monthPlusOne]; !ok {
@@ -173,17 +182,20 @@ func processBlock(
 		stats.QuarterlyAU[monthPlusTwo] = make(map[common.Address]struct{})
 		stats.QuarterlyTx[monthPlusTwo] = 0
 	}
+	lock.Unlock()
 
 	// ---- active users ----
 	for _, tx := range txs {
 		from := common.HexToAddress(tx.(map[string]interface{})["from"].(string))
 		key := fmt.Sprintf("daily:au:%s:%s", date, from.Hex())
 		db.Set([]byte(key), []byte{1}, pebble.NoSync)
+		lock.Lock()
 		stats.DailyAU[date][from] = struct{}{}
 		stats.MonthlyAU[month][from] = struct{}{}
 		stats.QuarterlyAU[month][from] = struct{}{}
 		stats.QuarterlyAU[monthPlusOne][from] = struct{}{}
 		stats.QuarterlyAU[monthPlusTwo][from] = struct{}{}
+		lock.Unlock()
 	}
 	lock.Lock()
 	stats.DailyTx[date] += uint64(len(txs))
@@ -315,6 +327,7 @@ func loadDailyAUAndAggregate(db *pebble.DB, stats *Stats) error {
 		monthPlusOne := t.AddDate(0, 1, 0).Format("2006-01")
 		monthPlusTwo := t.AddDate(0, 2, 0).Format("2006-01")
 
+		lock.Lock()
 		// ---- daily ----
 		if _, ok := stats.DailyAU[dateStr]; !ok {
 			stats.DailyAU[dateStr] = make(map[common.Address]struct{})
@@ -324,9 +337,12 @@ func loadDailyAUAndAggregate(db *pebble.DB, stats *Stats) error {
 		// ---- monthly ----
 		if _, ok := stats.MonthlyAU[month]; !ok {
 			stats.MonthlyAU[month] = make(map[common.Address]struct{})
-			stats.QuarterlyAU[month] = make(map[common.Address]struct{})
 		}
 		stats.MonthlyAU[month][addr] = struct{}{}
+
+		if _, ok := stats.QuarterlyAU[month]; !ok {
+			stats.QuarterlyAU[month] = make(map[common.Address]struct{})
+		}
 		stats.QuarterlyAU[month][addr] = struct{}{}
 
 		if _, ok := stats.QuarterlyAU[monthPlusOne]; !ok {
@@ -338,6 +354,7 @@ func loadDailyAUAndAggregate(db *pebble.DB, stats *Stats) error {
 			stats.QuarterlyAU[monthPlusTwo] = make(map[common.Address]struct{})
 		}
 		stats.QuarterlyAU[monthPlusTwo][addr] = struct{}{}
+		lock.Unlock()
 	}
 
 	return iter.Error()
@@ -374,11 +391,32 @@ func loadDailyTxAndAggregate(db *pebble.DB, stats *Stats) error {
 		monthPlusOne := t.AddDate(0, 1, 0).Format("2006-01")
 		monthPlusTwo := t.AddDate(0, 2, 0).Format("2006-01")
 
-		stats.DailyTx[dateStr] += cnt
+		lock.Lock()
+		if _, ok := stats.DailyTx[dateStr]; !ok {
+			stats.DailyTx[dateStr] = 0
+		}
+		stats.DailyTx[dateStr] = cnt
+
+		if _, ok := stats.MonthlyTx[month]; !ok {
+			stats.MonthlyTx[month] = 0
+		}
 		stats.MonthlyTx[month] += cnt
+
+		if _, ok := stats.QuarterlyTx[month]; !ok {
+			stats.QuarterlyTx[month] = 0
+		}
 		stats.QuarterlyTx[month] += cnt
+
+		if _, ok := stats.QuarterlyTx[monthPlusOne]; !ok {
+			stats.QuarterlyTx[monthPlusOne] = 0
+		}
 		stats.QuarterlyTx[monthPlusOne] += cnt
+
+		if _, ok := stats.QuarterlyTx[monthPlusTwo]; !ok {
+			stats.QuarterlyTx[monthPlusTwo] = 0
+		}
 		stats.QuarterlyTx[monthPlusTwo] += cnt
+		lock.Unlock()
 	}
 
 	return iter.Error()

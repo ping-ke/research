@@ -1,4 +1,4 @@
-module github.com/ping-ke/qkc_active_user_report
+module qkc_au_collector
 
 go 1.24.9
 
