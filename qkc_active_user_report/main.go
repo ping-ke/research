@@ -147,12 +147,10 @@ func processBlock(
 	}
 
 	ts, _ := hexutil.DecodeUint64(tsHex)
-	blockTime := time.Unix(int64(ts), 0)
+	t := time.Unix(int64(ts), 0)
 
-	date := blockTime.Format("2006-01-02")
-	month := blockTime.Format("2006-01")
-	monthPlusOne := blockTime.AddDate(0, 1, 0).Format("2006-01")
-	monthPlusTwo := blockTime.AddDate(0, 2, 0).Format("2006-01")
+	date := t.Format("2006-01-02")
+	month, monthPlusOne, monthPlusTwo := getMonthStrs(t)
 
 	txs, ok := block["transactions"].([]interface{})
 	if !ok {
@@ -325,9 +323,7 @@ func loadDailyAUAndAggregate(db *pebble.DB, stats *Stats) error {
 			continue
 		}
 
-		month := t.Format("2006-01")
-		monthPlusOne := t.AddDate(0, 1, 0).Format("2006-01")
-		monthPlusTwo := t.AddDate(0, 2, 0).Format("2006-01")
+		month, monthPlusOne, monthPlusTwo := getMonthStrs(t)
 
 		lock.Lock()
 		// ---- daily ----
@@ -389,9 +385,7 @@ func loadDailyTxAndAggregate(db *pebble.DB, stats *Stats) error {
 			continue
 		}
 
-		month := t.Format("2006-01")
-		monthPlusOne := t.AddDate(0, 1, 0).Format("2006-01")
-		monthPlusTwo := t.AddDate(0, 2, 0).Format("2006-01")
+		month, monthPlusOne, monthPlusTwo := getMonthStrs(t)
 
 		lock.Lock()
 		if _, ok := stats.DailyTx[dateStr]; !ok {
@@ -422,4 +416,20 @@ func loadDailyTxAndAggregate(db *pebble.DB, stats *Stats) error {
 	}
 
 	return iter.Error()
+}
+
+func getMonthStrs(blockTime time.Time) (string, string, string) {
+	loc := blockTime.Location()
+
+	firstOfMonth := time.Date(
+		blockTime.Year(),
+		blockTime.Month(),
+		1,
+		0, 0, 0, 0,
+		loc,
+	)
+
+	return firstOfMonth.Format("2006-01"),
+		firstOfMonth.AddDate(0, -1, 0).Format("2006-01"),
+		firstOfMonth.AddDate(0, -2, 0).Format("2006-01")
 }
