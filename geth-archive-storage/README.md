@@ -129,7 +129,7 @@ Each freezer table uses:
 - `*.ridx`   → index file (no compressed data)
 - `*.meta`   → metadata (table boundary, version, offsets)
 
-[trienode-history-file](./trienode-history-files.png)
+![trienode-history-file](./trienode-history-files.png)
 
 Note: 
 - compressed means compress before write to *.cdat file or decompress after read from *.cdat.
@@ -267,7 +267,7 @@ func New(diskdb ethdb.Database, config *Config, isVerkle bool) *Database {
 ```
 
 ## How Freezer Works
-[state-history-files](./state-history-files.png)
+![state-history-files](./state-history-files.png)
 
 ### **Demo Code**
 ```go
