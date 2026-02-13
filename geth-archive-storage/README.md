@@ -269,7 +269,7 @@ func New(diskdb ethdb.Database, config *Config, isVerkle bool) *Database {
 ## How Freezer Works
 ![state-history-files](./state-history-files.png)
 
-### **Demo Code**
+### **Simplified Code**
 ```go
 // core/rawdb/freezer_table.go
 type freezerTableMeta struct {
@@ -399,7 +399,7 @@ Item 2 → (filenum=1, offset=50), size = 50 - 0 = 50 bytes
 
 ## How Freezer Builds indexes
 
-### **Demo Code**
+### **Simplified Code**
 ```go
 // triedb/pathdb/database.go
 func (db *Database) setHistoryIndexer() {
@@ -581,7 +581,7 @@ This account is modified at the following `stateID`s (or `BlockID`s): `100`, `10
     Two types of keys are written.
     ```    
         ma + 0xabc123...  => [ {id:0, max:205, entries:5} ]
-        mba + 0xabc123... + 0 => compressed([100,105,106,200,205])
+        mba + 0xabc123... + 0 => compressed([100][5][1][94][5])
     ```
 
 ---
@@ -604,7 +604,7 @@ GetBalance
 → stateHistoryReader.read(...)
 → indexReader.readGreaterThan(...)
 
-#### **Demo Code** 
+#### **Simplified Code** 
 ```go
 func (api *BlockChainAPI) GetBalance(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*hexutil.Big, error) {
 	state, _, err := api.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
@@ -780,7 +780,7 @@ Load historical trienode
   ↓
 Construct proof
 ```
-#### **Demo Code** 
+#### **Simplified Code** 
 ```go
 func (t *Trie) Prove(key []byte, proofDb ethdb.KeyValueWriter) error {
 	key = keybytesToHex(key)
