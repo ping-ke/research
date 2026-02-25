@@ -231,11 +231,6 @@ int main(int argc, char** argv) {
     options.statistics = rocksdb::CreateDBStatistics();
     options.stats_dump_period_sec = 0;
 
-    // rocksdb::Env* env = rocksdb::Env::Default();
-    // env->SetBackgroundThreads(8, rocksdb::Env::LOW);
-    // env->SetBackgroundThreads(4, rocksdb::Env::HIGH);
-    // options.env = env;
-
     // block cache
     rocksdb::BlockBasedTableOptions table_options;
     table_options.block_cache = rocksdb::NewLRUCache(256 << 20); // 128MB cache
@@ -311,7 +306,6 @@ int main(int argc, char** argv) {
     std::cout << "BytesRead (MB): "
           << st->getTickerCount(rocksdb::BYTES_READ) / (1024.0 * 1024.0) << " MB\n";
 
-    // GET 命中率可使用更细粒度指标
     uint64_t get_hits = st->getTickerCount(rocksdb::GET_HIT_L0)
                   + st->getTickerCount(rocksdb::GET_HIT_L1)
                   + st->getTickerCount(rocksdb::GET_HIT_L2_AND_UP);
@@ -321,7 +315,6 @@ int main(int argc, char** argv) {
     std::cout << "  L2 ~ GetHits: " << st->getTickerCount(rocksdb::GET_HIT_L2_AND_UP) << "\n";
     std::cout << "-------------------------------------\n";
 
-    // 也可以用 GetProperty 直接查看完整文本版统计：
     std::string stats;
     if (db->GetProperty("rocksdb.stats", &stats)) {
         std::cout << stats << "\n";
