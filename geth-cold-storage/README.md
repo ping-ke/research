@@ -1,8 +1,32 @@
 # Geth Code Storage
 
-## Ethereum Node Storage Reality Problem
+Table of Contents
+- Motivation 
+  - Problem: The Storage Explosion
+  - Design Goal
+- Geth Tiered Storage
+  - Tiered Layers: DiffLayer & DiskLayer & Freezer
+  - Hot Data
+  - Cold Data
+- What Freezer Stores
+- How Freezer Works
+  - Freezer File Layout
+  - Simplified Code
+  - Example
+- How Freezer Builds indexes
+  - Simplified Code
+  - Example
+- How Freezer Is Used
+  - Sample 1: eth_GetBalance
+  - Sample 2: eth_GetProof
+- One-Sentence Summary
 
-### The Storage Explosion
+References
+
+## Motivation
+Ethereum nodes accumulate massive amounts of historical data over time. Traditionally, this data is stored alongside current state and head blocks in a single LSM database (e.g., Pebble).
+
+### Problem: The Storage Explosion
 
 Ethereum is an append-only system:
 
@@ -14,53 +38,25 @@ Ethereum is an append-only system:
   - Compaction overhead
   - Random IO (especially hash-based trie)
 
-### Key Insight
+#### Core problem:
 
-> Most historical data is immutable and rarely accessed.
+> Historical data is practically immutable, but storing it in a unified hot database causes high storage and IO overhead.
 
-Treating hot state and immutable history the same way causes unnecessary IO pressure and compaction cost.
+Therefore, Geth introduces a cold data tier — a sequential, append-only storage optimized for historical content.
 
-## 2. Hot vs Cold Data
+### Design Goal
 
-### 🔥 Hot Data
+The goal of Geth Cold Storage is to:
+- Separate immutable historical data from hot mutable data
+- Store historical blocks, state, and trie nodes in an append-only, sequential format
+- Build efficient historical indexes for state and trie mutation history
+- Enable archive-style queries without overwhelming the hot LSM database
+- Provide a scalable storage architecture with predictable IO behavior
 
-default at [schema.go](https://github.com/ethereum/go-ethereum/tree/master/core/rawdb/schema.go)
-- Latest blocks
-- Current state trie
-- DiffLayer (in-memory mutations)
-- Dirty trie node buffer
-- Recent Pebble entries
+## Geth Tiered Storage 
 
-Characteristics:
-- Frequently updated
-- Low-latency requirement
-- Random read/write
-
-
-
----
-
-### ❄️ Cold Data (Freezer)
-
-Freezer (Ancient Store) is Geth’s cold storage engine.
-[ancient_scheme.go](https://github.com/ethereum/go-ethereum/tree/master/core/rawdb/ancient_scheme.go)
-- Finalized blocks (headers / bodies / receipts / hashs)
-- Historical state
-- Historical trie nodes
-- Immutable index data
-
-Characteristics:
-- Append-only
-- File-based
-- No modified
-- Suitable for sequential IO
-- Optimized for archive queries
-- Block-number indexed
-
----
-
-### State Layers: DiffLayer & DiskLayer
-
+### Tiered Layers: DiffLayer & DiskLayer & Freezer
+Geth’s storage architecture now consists of multiple layers:
 ```go
 type layerTree struct {
 	base   *diskLayer   // bottom() *diskLayer
@@ -84,9 +80,9 @@ type layerTree struct {
         ↓
  DiskLayer (oldest， Pebble)
         ↓
-    History Index
-        ↓
      Freezer
+        ↓
+  History Index
 ```
 #### DiffLayer
 - In-memory state changes
@@ -116,26 +112,43 @@ type layerTree struct {
        └── state          └── receipts
 ```
 
+### 🔥 Hot Data
 
-# Freezer
+default at [schema.go](https://github.com/ethereum/go-ethereum/tree/master/core/rawdb/schema.go)
+- Latest blocks
+- Current state trie
+- DiffLayer (in-memory mutations)
+- Dirty trie node buffer
+- Recent Pebble entries
 
-## Freezer File Types
+Characteristics:
+- Frequently updated
+- Low-latency requirement
+- Random read/write
 
-Each freezer table uses:
+---
 
-- `*.cdat`   → data file (compressed data)
-- `*.rdat`   → data file (no compressed data)
-- `*.cidx`   → index file (compressed data)
-- `*.ridx`   → index file (no compressed data)
-- `*.meta`   → metadata (table boundary, version, offsets)
+### ❄️ Cold Data (Freezer)
 
-![trienode-history-file](./trienode-history-files.png)
+Freezer (Ancient Store) is Geth’s cold storage engine.
+[ancient_scheme.go](https://github.com/ethereum/go-ethereum/tree/master/core/rawdb/ancient_scheme.go)
+- Finalized blocks (headers / bodies / receipts / hashs)
+- Historical state
+- Historical trie nodes
+- Immutable index data
 
-Note: 
-- compressed means compress before write to *.cdat file or decompress after read from *.cdat.
+Characteristics:
+- Append-only
+- File-based
+- No modified
+- Suitable for sequential IO
+- Optimized for archive queries
+- Block-number indexed
+
+---
 
 
-## Cold Storage Categories
+## What Freezer Stores
 Cold Storage support 3 Categories: 
 - Chain: `blockNumber <= head - ancientLimit` and `ancientLimit = 90000 blocks`
 - State: write when block commit
@@ -269,6 +282,22 @@ func New(diskdb ethdb.Database, config *Config, isVerkle bool) *Database {
 ## How Freezer Works
 ![state-history-files](./state-history-files.png)
 
+### Freezer File Layout
+Each freezer table uses:
+
+- data files  
+  - `*.cdat`   → compressed data
+  - `*.rdat`   → no compressed data
+- index file (file + offset)
+  - `*.cidx`   → compressed index file
+  - `*.ridx`   → no compressed index file
+- `*.meta`   → metadata (table boundary, version, offsets)
+
+![trienode-history-file](./trienode-history-files.png)
+
+Note: 
+- compressed means compress before write to *.cdat file or decompress after read from *.cdat.
+
 ### **Simplified Code**
 ```go
 // core/rawdb/freezer_table.go
@@ -398,6 +427,18 @@ Item 2 → (filenum=1, offset=50), size = 50 - 0 = 50 bytes
 
 
 ## How Freezer Builds indexes
+Freezer itself only stores raw historical entries. To enable fast lookup, history indexes are built as follows:
+- Freezer stores immutable history: `pre-root`, `root`, `block` `number`, account and storage changes
+- Constructs indexers (stateIndexer, trienodeIndexer) during database setup asynchronously
+  - Reads history entries in batch by sequential ID sequentially: `readStateHistories(freezer, start, count)` 
+  - Aggregating Mutation History, For each record:
+    - Extract mutation keys (`account`, `storage slot`, `trie node hash`) and append incremental stateID to in-memory index map
+    - `A -> [100, 105, 106, 200, 205]`
+  - Writing Compressed Index Blocks When the batching threshold is reached:
+    - `indexWriter` compresses the ID list: Compressed `A → [100][+5][+1][+94][+5]`
+    - Writes index blocks into Pebble DB: `mba + addressHash + blockID` → `compressed IDs`
+    - Also stores block index metadata: `ma + addressHash` → `metadata`
+
 
 ### **Simplified Code**
 ```go
@@ -587,6 +628,12 @@ This account is modified at the following `stateID`s (or `BlockID`s): `100`, `10
 ---
 
 ## How Freezer is Used
+When a historical RPC query arrives (e.g., `eth_getBalance(address, blockNumber)`), 
+if code (`StateAt(Root)` return error): 
+  - **Index lookup**: Read index record from Pebble (index meta & index block) to identify freezer item number
+  - **Locate data file**: Map item number → `freezer file + offset` 
+  - **Read raw entry**: Fetch raw history from freezer (`file + offset` -> data)
+  - **Decode state or trie node**: Deserialize & reconstruct state by applying backward diffs 
 
 
 ### Sample 1: eth_GetBalance
@@ -877,3 +924,9 @@ Returned JSON (simplified):
   "codeHash": "0xabc..."
 }
 ```
+
+# One-Sentence Summary
+
+Geth Cold Storage stores immutable historical blocks, state, and trie nodes in sequential append-only freezer files, 
+builds compressed history indexes in the hot database to map address/trie path -> freezer index -> freezer positions, 
+and serves efficient historical queries without overloading the primary LSM hot store.
