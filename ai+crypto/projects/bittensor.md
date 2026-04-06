@@ -17,8 +17,7 @@
 13. [代币经济学](#13-代币经济学)
 14. [与其他去中心化 AI 项目对比](#14-与其他去中心化-ai-项目对比)
 15. [挑战与风险](#15-挑战与风险)
-16. [演讲大纲 (25 min)](#16-演讲大纲-25-min)
-17. [Demo 设计方案](#17-demo-设计方案)
+16. [Demo 设计方案](#17-demo-设计方案)
 
 ---
 
@@ -968,25 +967,7 @@ Covenant-72B 成功后，SN3 的 alpha token 一个月上涨 444%，市值 $1.37
 
 ---
 
-## 16. 演讲大纲 (25 min)
-
-> 核心策略：**Demo 穿插在讲解中**，而非集中在最后。每讲一个概念，立即用真实数据/链接佐证。以 SN3 Covenant-72B 作为贯穿全程的故事线。
-
-| 时间 | 环节 | 内容 | 形式 |
-|------|------|------|------|
-| 0-2 min | **开场 Hook** | "上个月，70 台互不相识的电脑，通过互联网训练出了一个 720 亿参数的 AI 模型，NVIDIA 黄仁勋说这是现代版 Folding@home" | 幻灯片 |
-| 2-5 min | **这是怎么做到的？** | Bittensor 概述 + SN3 故事。打开 [taostats.io/subnets](https://taostats.io/subnets) 展示子网全景 | 幻灯片 + **浏览器** |
-| 5-9 min | **架构与角色** | Subtensor 链 + Subnet + Miner/Validator。用 `btcli subnet metagraph --netuid 3` 或 [taostats SN3 Metagraph](https://taostats.io/subnets/3/metagraph) 直接展示当前 SN3 的真实 Miner 列表 | 幻灯片 + **Live 命令/浏览器** |
-| 9-12 min | **Yuma Consensus** | 用简单数字示例（3 个 Validator + 4 个 Miner 的权重矩阵）讲清加权中位数 → Bond → Emission | 幻灯片 + 白板 |
-| 12-14 min | **SN3 技术深入** | SparseLoCo 算法：97% 梯度压缩、异步同步、对象存储中继。打开 [github.com/tplr-ai/templar](https://github.com/tplr-ai/templar) 看代码结构 | 幻灯片 + **GitHub 浏览** |
-| 14-18 min | **Demo: Metagraph 探索** | 运行 `demo_metagraph.py` 脚本，实时查询 SN3 主网数据。展示 Miner 排名、emission 分布、stake 情况 | **Live Demo** |
-| 18-21 min | **Demo: Mini Subnet** | 本地 Subtensor + 简单 Miner/Validator 完整交互周期。让听众看到查询→评估→权重上链的全流程 | **Live Demo** |
-| 21-24 min | **dTAO + 经济模型** | Alpha Token + AMM。展示 SN3 的 alpha 价格图（涨 444%）。halving、Grayscale ETF | 幻灯片 + **Taostats 图表** |
-| 24-25 min | **总结 + Q&A** | Bittensor 对我们的启发？可能的参与方式？ | 开放讨论 |
-
----
-
-## 17. Demo 设计方案
+## 16. Demo 设计方案
 
 ### Demo 1：Metagraph 实时探索（穿插在架构讲解中，~3 min）
 
