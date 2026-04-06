@@ -30,8 +30,8 @@ jobs:
       - name: Install Claude Code
         run: |
           npm install -g @anthropic-ai/claude-code
-          which claude-code
-          claude-code --version
+          which claude
+          claude --version
 
       - name: Run Claude Review
         id: review
@@ -59,7 +59,7 @@ jobs:
           WARNING_COUNT: <number>
           EOF
 
-          cat pr.diff | claude-code review \
+          cat pr.diff | claude review \
             --repo . \
             --prompt-file prompt.txt \
             | tee review.txt
