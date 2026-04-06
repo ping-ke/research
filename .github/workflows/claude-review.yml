@@ -37,32 +37,37 @@ jobs:
         id: review
         run: |
           set -eo pipefail
-
-          # write prompt
-          cat << 'EOF' > prompt.txt
-          Review ONLY the changed lines in this diff.
-
+      
+          cat << 'EOF' > full_prompt.txt
+          You are a senior software engineer doing code review.
+      
+          Below is a git diff. Review ONLY the changed lines.
+      
           Focus on:
           - Critical bugs, logic errors
           - Security vulnerabilities
           - Performance issues
           - Async/concurrency issues
-
+      
           For each issue:
           - Start with severity: [CRITICAL] or [WARNING]
           - Explain clearly and concisely
-
+      
           Only report real issues. Ignore trivial style comments.
-
-          At the end, output a summary:
+      
+          At the end, output:
           CRITICAL_COUNT: <number>
           WARNING_COUNT: <number>
+      
+          ===== DIFF START =====
           EOF
-
-          cat pr.diff | claude review \
-            --repo . \
-            --prompt-file prompt.txt \
-            | tee review.txt
+      
+          cat pr.diff >> full_prompt.txt
+      
+          echo "===== DIFF END =====" >> full_prompt.txt
+      
+          # 🔥 直接喂给 Claude
+          cat full_prompt.txt | claude | tee review.txt
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
