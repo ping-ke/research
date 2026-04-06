@@ -10,6 +10,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -18,6 +19,7 @@ jobs:
       - name: Claude Code Review
         uses: anthropics/claude-code-action@v1
         with:
+          mode: cli
           prompt: |
             Review the code changes in this pull request.
             Focus on:
@@ -29,5 +31,3 @@ jobs:
             Post your review comments directly on the PR.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           anthropic_base_url: ${{ secrets.ANTHROPIC_BASE_URL }}
-        env:
-          ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_API_KEY }}
