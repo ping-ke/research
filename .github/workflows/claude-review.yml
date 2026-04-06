@@ -7,27 +7,103 @@ on:
 jobs:
   review:
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       pull-requests: write
-      id-token: write
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Claude Code Review
-        uses: anthropics/claude-code-action@v1
-        with:
-          mode: cli
-          prompt: |
-            Review the code changes in this pull request.
-            Focus on:
-            - Bugs and logic errors
-            - Security vulnerabilities
-            - Performance issues
-            - Code style and best practices
+      - name: Get PR diff
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          git diff origin/${{ github.base_ref }}...HEAD > pr.diff
 
-            Post your review comments directly on the PR.
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          anthropic_base_url: ${{ secrets.ANTHROPIC_BASE_URL }}
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run Claude Review
+        id: review
+        run: |
+          set -eo pipefail
+
+          # write prompt
+          cat << 'EOF' > prompt.txt
+          Review ONLY the changed lines in this diff.
+
+          Focus on:
+          - Critical bugs, logic errors
+          - Security vulnerabilities
+          - Performance issues
+          - Async/concurrency issues
+
+          For each issue:
+          - Start with severity: [CRITICAL] or [WARNING]
+          - Explain clearly and concisely
+
+          Only report real issues. Ignore trivial style comments.
+
+          At the end, output a summary:
+          CRITICAL_COUNT: <number>
+          WARNING_COUNT: <number>
+          EOF
+
+          cat pr.diff | claude-code review \
+            --repo . \
+            --prompt-file prompt.txt \
+            | tee review.txt
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+
+      - name: Parse review result
+        id: parse
+        run: |
+          CRITICAL=$(grep -o "CRITICAL_COUNT: [0-9]*" review.txt | awk '{print $2}')
+          WARNING=$(grep -o "WARNING_COUNT: [0-9]*" review.txt | awk '{print $2}')
+
+          # fallback
+          CRITICAL=${CRITICAL:-0}
+          WARNING=${WARNING:-0}
+
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "warning=$WARNING" >> $GITHUB_OUTPUT
+
+      - name: Comment PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('review.txt', 'utf8');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('CRITICAL_COUNT')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                ...context.repo,
+                comment_id: botComment.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: context.issue.number,
+                body
+              });
+            }
+
+      - name: Fail if critical issues found
+        if: steps.parse.outputs.critical != '0'
+        run: |
+          echo "❌ Critical issues found: ${{ steps.parse.outputs.critical }}"
+          exit 1
