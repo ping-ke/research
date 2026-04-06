@@ -19,6 +19,7 @@ jobs:
       - name: Claude Code Review
         uses: anthropics/claude-code-action@v1
         with:
+          mode: cli
           prompt: |
             Review the code changes in this pull request.
             Focus on:
