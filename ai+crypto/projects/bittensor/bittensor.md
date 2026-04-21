@@ -53,13 +53,13 @@ Bittensor 的链上层称为 **Subtensor**，是一条基于 **Substrate** (Pari
 ```
 ┌──────────────────────────────────────────────────────────┐
 │                    Subtensor Chain                       │
-│         (注册、质押、共识、emission 分配)                     │
+│         (注册、质押、共识、emission 分配)                  │
 ├────────────┬────────────┬─────────────┬──────────────────┤
 │  Subnet 1  │  Subnet 3  │  Subnet 9   │  Subnet N ...    │
-│  (LLM 推理) │ (去中心化   │ (模型预训练)  │                  │
-│            │   训练)     │             │                  │
+│ （LLM 推理）│ （去中心化  │（模型预训练）│                  │
+│            │   训练）   │             │                  │
 │  Miners    │  Miners    │  Miners     │  Miners          │
-│  Validators│  Validators│  Validators │  Validators      │
+│  Validators│  Validators│  Validators │  Validators      │![alt text](image.png)
 └────────────┴────────────┴─────────────┴──────────────────┘
 ```
 
@@ -236,6 +236,15 @@ flowchart LR
 | 最小单位 | rao（1 TAO = 10⁹ rao） |
 | 用途 | 质押、注册费、Subnet 创建、治理 |
 
+### Subnet（子网）
+
+每个子网定义：
+- Miner 需要执行的任务类型
+- Validator 如何评分
+- 自定义 Synapse 协议
+
+截至 26 年 4 月，主网上有 **127 个子网，60+活跃子网**。
+
 ### Miner（矿工）
 
 - 在子网注册后运行 Axon 服务
@@ -256,14 +265,6 @@ flowchart LR
 - 需要持有足够 TAO 质押才能影响共识
 - 获得与质押和共识对齐度成比例的**分红**
 
-### Subnet（子网）
-
-每个子网定义：
-- Miner 需要执行的任务类型
-- Validator 如何评分
-- 自定义 Synapse 协议
-
-截至 2025 年，主网上有 **50+ 个活跃子网**。
 
 ---
 
@@ -604,13 +605,28 @@ Templar 已扩展为 Covenant AI，包含三个平台：
 ### 创建 Subnet
 
 ```bash
-# 创建钱包
-btcli wallet create --wallet.name my_coldkey
-btcli wallet create --wallet.name my_coldkey --wallet.hotkey my_hotkey
+# 创建 coldkey（主账户）
+btcli wallet new_coldkey --wallet.name mywallet
+# 创建 hotkey（用于操作）
+btcli wallet new_hotkey --wallet.name mywallet --wallet.hotkey myhotkey
+# 查看钱包地址
+btcli wallet list
 
-# 注册新子网（动态定价，需要花费 TAO）
-btcli subnet create --wallet.name my_coldkey
-# 返回 netuid
+# 查看 testnet 余额
+btcli wallet balance --wallet.name mywallet --subtensor.network test
+
+# 查看 Subnet
+btcli subnet list --subtensor.network test
+# 查看 Validator / Neuron
+btcli subnet metagraph --netuid 1 --subtensor.network test
+btcli subnet metagraph --netuid 1 --subtensor.network test --json-output --no-prompt
+
+# 给某个 hotkey stake
+# --hotkey-ss58-address：目标 validator（默认是你自己的）
+btcli stake add   --wallet.name mywallet   --wallet-hotkey myhotkey   --hotkey-ss58-address 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY   --amount 1   --netuid 1   --subtensor.network test
+
+# 
+btcli stake list --wallet.name mywallet --subtensor.network test
 ```
 
 子网创建成本是动态的，随着子网数量增加而上升（burn-based auction 机制）。
