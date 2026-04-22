@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant V as Validator
+    participant Chain as Subtensor
+    participant M1 as Miner 1
+    participant M2 as Miner 2
+    participant M3 as Miner 3
+
+    V->>Chain: 读取 Metagraph
+    par 并行查询
+        V->>M1: Dendrite.query(Synapse)
+        V->>M2: Dendrite.query(Synapse)
+        V->>M3: Dendrite.query(Synapse)
+    end
+    M1-->>V: Response（质量高）
+    M2-->>V: Response（质量中）
+    M3-->>V: 超时
+    V->>Chain: set_weights([0.8, 0.5, 0.0])
+    Chain->>Chain: Yuma Consensus → emission
