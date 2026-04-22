@@ -495,3 +495,90 @@ subtensor.set_weights(
 ```
 
 ---
+
+<!-- _class: lead -->
+
+# Part 9 · 技术深挖：SparseLoCo
+## Covenant-72B 是怎么做到的？
+
+---
+
+## 去中心化训练的带宽瓶颈
+
+**传统分布式训练（PyTorch DDP）**
+
+```
+每步同步完整梯度 → 需要高带宽数据中心内部网络
+数据中心：100 Gbps+
+普通商用网络：100 Mbps ~ 1 Gbps
+```
+
+跨互联网训练 72B 模型 → 带宽差距 **100x**，直接梯度同步不可行
+
+---
+
+## SparseLoCo：97% 压缩率
+
+```
+传统 DDP：每步同步完整梯度
+
+SparseLoCo：
+  本地迭代 15~250 步
+      ↓
+  只选 1~3% 核心梯度（稀疏选择）
+      ↓
+  量化为 2-bit（压缩率 97%）
+      ↓
+  通过 S3/R2 对象存储异步交换
+      ↓
+  其他节点合并更新，继续本地迭代
+```
+
+**结果：普通商用网络即可参与 72B 模型训练**
+
+---
+
+<!-- _class: lead -->
+
+# Part 10 · 挑战与风险
+
+---
+
+## 挑战与风险
+
+**技术**
+- 评估难题：创意类任务难以自动化评分
+- 延迟：去中心化推理 > 中心化 API
+- SparseLoCo 在更大模型上的有效性待验证
+
+**经济**
+- Emission 集中：头部节点可能垄断
+- 大量子网难以持续吸引参与者
+- 投机风险：SN3 一月涨 444%
+
+**生态**
+- 与 OpenAI / Anthropic / Google 的持续竞争
+- 监管不确定性
+- 子网开发学习曲线较陡
+
+---
+
+## 参考链接
+
+**文档 & 代码**
+
+| 资源 | 地址 |
+|------|------|
+| 官方文档 | docs.bittensor.com |
+| SDK | github.com/opentensor/bittensor |
+| Subnet 模板 | github.com/latent-to/bittensor-subnet-template |
+| SN3 Templar | github.com/tplr-ai/templar |
+| Covenant-72B 报告 | templarresearch.substack.com |
+
+**网络监控 & API**
+
+| 资源 | 地址 |
+|------|------|
+| 全网浏览器 | taostats.io |
+| SN19 Nineteen | nineteen.ai/app/api |
+| SN64 Chutes | chutes.ai/docs/getting-started/quickstart |
