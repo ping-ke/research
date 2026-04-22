@@ -138,9 +138,7 @@ style: |
 
 ---
 
-## Emission 两阶段
-
-**① 每个 Block（~12s）— Injection**
+## Emission ① Injection（每 Block ~12s）
 
 ```
 0.5 TAO 按各子网净流入 EMA 分配 → 三路注入：
@@ -149,7 +147,12 @@ style: |
   Alpha Outstanding += α       待分配给参与者（上限 1/block）
 ```
 
-**② 每个 Tempo（~72min）— Distribution**
+子网 emission 份额 ∝ **净 TAO 流入的 EMA（86.8 天窗口）**
+净流入多 → 更多 emission　净流出 → emission 归零
+
+---
+
+## Emission ② Distribution（每 Tempo ~72min）
 
 | 接收方 | 比例 |
 |--------|------|
@@ -164,3 +167,5 @@ style: |
 ## Subnet 生命周期
 
 ![w:1100](images/mermaid-subnet-lifecycle.png)
+
+---
