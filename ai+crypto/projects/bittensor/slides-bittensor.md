@@ -273,3 +273,225 @@ Step 8  Dividends    D[i] = Σⱼ B[i][j] × I[j]          ← Validator emissio
 > V2 对 M1 打 0.5 → 被截到 0.2，Dividends 仅 12.1 < V1 的 28.9
 
 ---
+
+<!-- _class: lead -->
+
+# Part 5 · 经济学（dTAO）
+
+---
+
+## TAO 参数 & AMM 池
+
+| 参数 | 值 |
+|------|-----|
+| 最大供应量 | 21,000,000 TAO（同 BTC）|
+| 出块时间 | ~12 秒 |
+| 当前区块奖励 | **0.5 TAO**（2025.12 首次 halving 后）|
+| 每日 emission | ~3,600 TAO/天 |
+
+**每个子网有独立 AMM 池（恒定乘积，无手续费）**
+
+```
+质押 TAO   → TAO 进 TAO Reserve，Alpha 从 Alpha Reserve 取出 → 用户得 Alpha
+取消质押   → 归还 Alpha → TAO 从 TAO Reserve 取出 → 用户得 TAO（有滑点）
+Alpha 价格  = TAO Reserve / Alpha Reserve
+```
+
+---
+
+## 质押 TAO = 为子网"投票"
+
+```
+子网 emission 份额 ∝ 净 TAO 流入的 EMA（86.8 天窗口）
+
+净流入多 → 获得更多 emission → Alpha 预期上涨
+净流出   → emission 归零   → Alpha 卖压增大
+```
+
+市场机制：emission 自动流向最受资金认可的子网，无需人工治理。
+
+---
+
+## Alpha 价格为什么普遍很低？
+
+Miner/Validator 收到 Alpha 后**持续通过 AMM 卖回 TAO** → 形成持续卖压
+
+Alpha 价格反映的是「**市场对该子网未来净流入的预期**」，而非当前质押量。
+
+**典型数据（Subnet 1）：**
+
+```
+TAO Reserve:   657 τ     Alpha Reserve: 161k α
+Alpha 价格:    0.0004 τ/α（1 TAO ≈ 2500 Alpha）
+EMA 净流入:    -0.0338（净流出 → emission 为零）
+```
+
+---
+
+<!-- _class: lead -->
+
+# Part 6 · 商业化场景
+
+---
+
+## 整体调用链架构
+
+![w:900](images/mermaid-call-chain.png)
+
+---
+
+## 资金流
+
+![w:1100](images/mermaid-fund-flow.png)
+
+---
+
+## 三种收费模型
+
+| 模式 | 流程 | 特点 |
+|------|------|------|
+| **预付费 Credits** | 用户充值 → 合约记余额 → 每次调用扣减 | 类似 OpenAI credits，体验好 |
+| **按调用付费** | 用户签名 → 合约验证 → 扣费 → 放行 | 精细计费（token / request）|
+| **订阅制** | 持有 NFT / token → API 验证持仓 | Web3-native，适合 SaaS |
+
+---
+
+## Web2 vs Bittensor 架构对比
+
+| 模块 | Web2（OpenAI）| Bittensor 方案 |
+|------|--------------|----------------|
+| API | OpenAI API | 自建 API Gateway |
+| 模型 | 自有 | 去中心化 Miners |
+| 调度 | 内部黑盒 | Validator（可审计）|
+| 收费 | Stripe | EVM 合约 |
+| 激励 | 公司利润 | Emission + Fee |
+| 抗审查 | 无 | 无许可，全球节点 |
+
+---
+
+<!-- _class: lead -->
+
+# Part 7 · Demo
+
+---
+
+## Demo A：直接调用现有子网 API
+
+**SN64 Chutes（OpenAI 兼容接口）**
+
+```bash
+pip install chutes openai
+chutes register
+chutes keys create --name demo-key --admin   # → cpk_xxx
+```
+
+```python
+from openai import OpenAI
+client = OpenAI(api_key="cpk_xxx", base_url="https://llm.chutes.ai/v1")
+resp = client.chat.completions.create(
+    model="deepseek-ai/DeepSeek-V3-0324",
+    messages=[{"role": "user", "content": "你好，请介绍一下自己"}],
+    max_tokens=128,
+)
+print(resp.choices[0].message.content)
+```
+
+**SN19 Nineteen：** 申请 Key → `api_key="your_nineteen_key"` + `base_url="https://api.nineteen.ai/v1"`
+
+---
+
+## Demo B：自建 Validator 提供 HTTP API
+
+```
+用户 curl/SDK
+  │  POST /chat
+  ▼
+Validator (FastAPI :8000)
+  │  dendrite.forward() → 直连 Miner IP:Port
+  ▼
+Miner (Axon :8091)   →  set_weights → Subtensor
+```
+
+```bash
+btcli subnet register --netuid 461 \
+  --wallet.name mywallet --wallet.hotkey myhotkey \
+  --subtensor.network test
+
+python miner.py --netuid 461
+python validator.py --netuid 461
+
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is Bittensor?"}'
+```
+
+---
+
+<!-- _class: lead -->
+
+# Part 8 · SDK 接口
+
+---
+
+## 三个核心文件
+
+```
+bittensor-subnet-template/
+├── neurons/
+│   ├── miner.py      ← 实现 forward()，处理 Validator 请求
+│   └── validator.py  ← 查询 Miner，打分，set_weights()
+└── template/
+    └── protocol.py   ← 定义 Synapse（请求/响应结构）
+```
+
+```bash
+pip install bittensor bittensor-cli
+```
+
+---
+
+## 定义协议 & Miner 实现
+
+```python
+# protocol.py
+class MyProtocol(bt.Synapse):
+    query: str
+    response: str = ""
+
+# miner.py
+def forward(synapse: MyProtocol) -> MyProtocol:
+    synapse.response = my_model.generate(synapse.query)
+    return synapse
+
+axon = bt.Axon(wallet=wallet, port=8091)
+axon.attach(forward_fn=forward)
+axon.serve(netuid=NETUID, subtensor=subtensor)
+axon.start()
+```
+
+---
+
+## Validator 实现
+
+```python
+# validator.py
+metagraph = subtensor.metagraph(netuid=NETUID)
+
+responses = await dendrite.forward(
+    axons=metagraph.axons,
+    synapse=MyProtocol(query="Hello"),
+    timeout=12.0,
+)
+
+scores = [1.0 if r.response else 0.0 for r in responses]
+weights = normalize(scores)
+
+subtensor.set_weights(
+    netuid=NETUID,
+    uids=metagraph.uids,
+    weights=weights,
+    wallet=wallet,
+)
+```
+
+---
