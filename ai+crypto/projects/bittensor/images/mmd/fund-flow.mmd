@@ -1,8 +1,0 @@
-flowchart LR
-    U["用户"] -->|"ETH/USDC/TAO"| C["EVM 合约"]
-    C -->|"项目方收益"| Proj["项目方 / Validator"]
-    Proj -->|"质押 TAO → 更多 emission"| Pool["子网 AMM Pool"]
-    Pool -->|"Alpha emission"| Proj
-    Chain["Subtensor"] -->|"Alpha emission 41%"| Miners["Miners"]
-    Chain -->|"Alpha emission 41%"| Proj
-    Miners -->|"卖 Alpha → TAO（AMM swap）"| Pool

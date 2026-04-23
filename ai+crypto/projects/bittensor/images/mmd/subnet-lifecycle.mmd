@@ -1,9 +1,0 @@
-flowchart LR
-    A["创建 Subnet\nburn TAO"] --> B["定义协议\nSynapse"]
-    B --> C["部署 Miner\nAxon 服务"]
-    C --> D["部署 Validator\n评分 set_weights"]
-    D --> E["Yuma Consensus"]
-    E --> F["Emission 分配"]
-    F --> G{"市场反馈"}
-    G -->|"净流入↑ emission↑"| D
-    G -->|"净流出 emission=0"| H["Subnet 萎缩"]

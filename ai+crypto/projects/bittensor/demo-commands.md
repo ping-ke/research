@@ -28,6 +28,7 @@ btcli --version
 | `btcli subnet register` | 在子网注册 hotkey |
 | `btcli stake add` | 质押 TAO |
 
+### Sample
 ```bash
 # 创建 coldkey（主账户）
 btcli wallet new_coldkey --wallet.name mywallet
